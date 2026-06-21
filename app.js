@@ -65,7 +65,33 @@ function getImportRowsFromTextarea(){ const text=$('studentImportText')?.value.t
 async function handleStudentFile(e){ const file=e.target.files?.[0]; if(!file) return; if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''}); safe('studentImportText',el=>el.value=rowsToTsv(rows)); previewImportStudents(); }
 function rowsToTsv(rows){ const headers=['student_code','prefix','full_name','room','number']; const lines=[headers.join('\t')]; rows.forEach(r=>lines.push(headers.map(h=>r[h] ?? r[thaiHeader(h)] ?? '').join('\t'))); return lines.join('\n'); }
 function thaiHeader(h){return {student_code:'รหัสนักเรียน',prefix:'คำนำหน้า',full_name:'ชื่อ-สกุล',room:'ห้อง',number:'เลขที่'}[h]}
-function normalizeImportRow(r, fallbackRoom){ const student_code=String(r.student_code ?? r['รหัสนักเรียน'] ?? r.code ?? r['รหัส'] ?? '').trim(); const prefix=String(r.prefix ?? r['คำนำหน้า'] ?? '').trim(); const full_name=String(r.full_name ?? r['ชื่อ-สกุล'] ?? r.name ?? r['ชื่อ'] ?? '').trim(); const room=String(r.room ?? r['ห้อง'] ?? fallbackRoom ?? '').trim(); const numberRaw=String(r.number ?? r['เลขที่'] ?? '').trim(); return {student_code,prefix:prefix||null,full_name,room,number:numberRaw===''?null:Number(numberRaw)}; }
+function looksLikeExcelDateSerial(v){
+  const t=String(v ?? '').trim();
+  if(!t) return false;
+  const n=Number(t);
+  // Excel/Sheets มักแปลง 4/2 เป็น serial ประมาณ 36983.0000462963
+  // เลข serial วันที่จะเป็นตัวเลขยาว 5 หลักขึ้นไป จึงไม่ควรเอาไปเป็นชื่อห้อง
+  return Number.isFinite(n) && n > 20000 && n < 90000;
+}
+function cleanRoomValue(rawRoom, fallbackRoom){
+  let room=String(rawRoom ?? '').trim();
+  const fallback=String(fallbackRoom ?? '').trim();
+  if(!room) return fallback;
+  // แก้กรณี Excel/CSV แปลง 4/2 เป็น 36983.0000462963
+  if(looksLikeExcelDateSerial(room)) return fallback;
+  // ถ้า config มีรายชื่อห้อง และค่าที่อ่านมาไม่ตรงกับห้องใดเลย ให้ใช้ห้องที่เลือกไว้ด้านบนแทน
+  const rooms=(cfg.ROOMS||[]).map(x=>String(x));
+  if(rooms.length && !rooms.includes(room) && fallback) return fallback;
+  return room;
+}
+function normalizeImportRow(r, fallbackRoom){
+  const student_code=String(r.student_code ?? r['รหัสนักเรียน'] ?? r.code ?? r['รหัส'] ?? '').trim();
+  const prefix=String(r.prefix ?? r['คำนำหน้า'] ?? '').trim();
+  const full_name=String(r.full_name ?? r['ชื่อ-สกุล'] ?? r.name ?? r['ชื่อ'] ?? '').trim();
+  const room=cleanRoomValue(r.room ?? r['ห้อง'] ?? '', fallbackRoom);
+  const numberRaw=String(r.number ?? r['เลขที่'] ?? '').trim();
+  return {student_code,prefix:prefix||null,full_name,room,number:numberRaw===''?null:Number(numberRaw)};
+}
 function getImportRows(){ const fallbackRoom=$('importRoomSelect')?.value; return getImportRowsFromTextarea().map(r=>normalizeImportRow(r,fallbackRoom)).filter(r=>r.student_code || r.full_name); }
 function previewImportStudents(){ const rows=getImportRows(); const valid=rows.filter(r=>r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number))); safe('importSummary',el=>el.innerHTML=`ตรวจพบ <b>${rows.length}</b> แถว | พร้อมนำเข้า <b>${valid.length}</b> แถว`); if(!$('importPreview')) return; $('importPreview').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>สถานะ</th></tr>'; $('importPreview').querySelector('tbody').innerHTML=rows.slice(0,80).map(r=>{ const ok=r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number)); return `<tr><td>${escapeHtml(r.number??'')}</td><td>${escapeHtml(r.student_code)}</td><td>${escapeHtml(r.prefix??'')}</td><td class="text-left">${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.room)}</td><td>${ok?'พร้อม':'ข้อมูลไม่ครบ'}</td></tr>` }).join('') || '<tr><td colspan="6">ยังไม่มีข้อมูลตัวอย่าง</td></tr>'; }
 async function importStudents(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const rows=getImportRows().filter(r=>r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number))); if(!rows.length) return toast('ยังไม่มีข้อมูลที่พร้อมนำเข้า'); const {error}=await supabaseClient.from('students').upsert(rows,{onConflict:'student_code'}); if(error) return toast(error.message); toast(`นำเข้า/อัปเดตนักเรียนแล้ว ${rows.length} คน`); safe('studentRoomSelect',el=>el.value=$('importRoomSelect')?.value); await Promise.all([loadManagedStudents(), loadStudents()]); }
