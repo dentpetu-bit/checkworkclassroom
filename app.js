@@ -1,5 +1,5 @@
 const cfg = window.APP_CONFIG || {};
-const supabase = window.supabase?.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+let supabase = null;
 let assignments = [], students = [], managedStudents = [], scanState = 'student', selectedStudent = null, html5QrCode = null, lastText = '', lastAt = 0;
 const $ = id => document.getElementById(id);
 
@@ -9,15 +9,29 @@ function fillSelect(el, items, getVal=x=>x, getText=x=>x){if(!el)return;el.inner
 function escapeHtml(v){return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
 
 async function init(){
-  if(!supabase || !cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes('YOUR_PROJECT')){setStatus('ยังไม่ได้ตั้งค่า config.js',false);toast('กรุณาสร้าง config.js จาก config.example.js');return}
+  bindEvents();
   fillSelect($('roomSelect'), cfg.ROOMS||[]);
   fillSelect($('reportRoomSelect'), cfg.ROOMS||[]);
   fillSelect($('studentRoomSelect'), cfg.ROOMS||[]);
   fillSelect($('importRoomSelect'), cfg.ROOMS||[]);
   fillSelect($('studentFormRoom'), cfg.ROOMS||[]);
+
+  if(!window.supabase || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_URL.includes('YOUR_PROJECT')){
+    setStatus('ยังไม่ได้ตั้งค่า config.js',false);
+    toast('กรุณาสร้าง/อัปโหลดไฟล์ config.js');
+    return;
+  }
+
+  try{
+    supabase = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  }catch(e){
+    setStatus('ตั้งค่า Supabase ไม่ถูกต้อง',false);
+    toast('สร้าง Supabase client ไม่สำเร็จ: '+e.message);
+    return;
+  }
+
   await Promise.all([loadAssignments(), loadStudents(), loadManagedStudents()]);
   setStatus('เชื่อมต่อ Supabase แล้ว');
-  bindEvents();
 }
 
 function bindEvents(){
