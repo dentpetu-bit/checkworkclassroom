@@ -13,6 +13,7 @@
     <div class="brand"><div class="logo">KD</div><div><b>QR Score Studio</b><span>By Kru Dew</span></div></div>
     <button class="nav active" data-page="scorePage">สแกนคะแนน</button>
     <button class="nav" data-page="workPage">เพิ่มชิ้นงาน</button>
+    <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
     <button class="nav" data-page="reportPage">รายงาน</button>
   </aside>
 
@@ -58,6 +59,61 @@
         </div>
         <button id="addAssignmentBtn">+ เพิ่มชิ้นงาน</button>
         <div id="assignmentList" class="list"></div>
+      </div>
+    </section>
+
+
+    <section id="studentPage" class="page">
+      <div class="grid two student-grid">
+        <div class="card">
+          <div class="section-head">
+            <div><h2>จัดการนักเรียน</h2><p class="hint">เพิ่ม / แก้ไข / ลบนักเรียนผ่านหน้าเว็บได้ทันที</p></div>
+            <span id="studentCountBadge" class="count-badge">0 คน</span>
+          </div>
+          <div class="form-grid">
+            <label>เลือกห้อง<select id="studentRoomSelect"></select></label>
+            <label>ค้นหา<input id="studentSearchInput" placeholder="ค้นหารหัส ชื่อ เลขที่" /></label>
+          </div>
+          <div class="table-wrap compact"><table id="studentTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+
+        <div class="card">
+          <h2 id="studentFormTitle">เพิ่มนักเรียน</h2>
+          <form id="studentForm">
+            <input type="hidden" id="studentId" />
+            <div class="form-grid">
+              <label>รหัสนักเรียน<input id="studentCode" placeholder="เช่น 40201" required /></label>
+              <label>เลขที่<input id="studentNumber" type="number" placeholder="เช่น 1" /></label>
+              <label>คำนำหน้า<input id="studentPrefix" placeholder="นาย / นางสาว" /></label>
+              <label>ห้อง<select id="studentFormRoom"></select></label>
+            </div>
+            <label class="mt-12">ชื่อ-สกุล<input id="studentFullName" placeholder="ชื่อ นามสกุล" required /></label>
+            <div class="button-row">
+              <button id="saveStudentBtn" type="submit">บันทึกนักเรียน</button>
+              <button id="clearStudentFormBtn" type="button" class="ghost">ล้างฟอร์ม</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card import-card">
+        <div class="section-head">
+          <div><h2>นำเข้านักเรียน</h2><p class="hint">รองรับ Excel / CSV / วางตารางจาก Google Sheets หรือ Excel</p></div>
+          <button id="downloadTemplateBtn" class="ghost">ดาวน์โหลด Template</button>
+        </div>
+        <div class="form-grid import-grid">
+          <label>ห้องเริ่มต้นกรณีไฟล์ไม่มีคอลัมน์ห้อง<select id="importRoomSelect"></select></label>
+          <label>เลือกไฟล์ Excel/CSV<input id="studentFileInput" type="file" accept=".xlsx,.xls,.csv" /></label>
+        </div>
+        <label>วางข้อมูลนำเข้า
+          <textarea id="studentImportText" rows="7" placeholder="student_code	prefix	full_name	room	number&#10;40201	นาย	ตัวอย่าง นักเรียน	4/2	1"></textarea>
+        </label>
+        <div class="button-row">
+          <button id="previewImportBtn" type="button">ตรวจสอบข้อมูล</button>
+          <button id="confirmImportBtn" type="button">นำเข้า / อัปเดตนักเรียน</button>
+        </div>
+        <p id="importSummary" class="hint">ยังไม่มีข้อมูลนำเข้า</p>
+        <div class="table-wrap compact"><table id="importPreview"><thead></thead><tbody></tbody></table></div>
       </div>
     </section>
 

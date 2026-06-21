@@ -34,6 +34,8 @@ alter table scores enable row level security;
 -- ถ้าต้องการความปลอดภัยสูง ให้เพิ่ม Supabase Auth แล้วเปลี่ยนนโยบายเป็น authenticated เท่านั้น
 create policy "students read" on students for select using (true);
 create policy "students insert" on students for insert with check (true);
+create policy "students delete" on students for delete using (true);
+create policy "students update" on students for update using (true) with check (true);
 create policy "assignments read" on assignments for select using (true);
 create policy "assignments insert" on assignments for insert with check (true);
 create policy "scores read" on scores for select using (true);
