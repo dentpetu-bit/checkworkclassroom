@@ -1,0 +1,48 @@
+-- Run in Supabase SQL Editor
+create table if not exists students (
+  id uuid primary key default gen_random_uuid(),
+  student_code text unique not null,
+  prefix text,
+  full_name text not null,
+  room text not null,
+  number int,
+  created_at timestamptz default now()
+);
+
+create table if not exists assignments (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  max_score numeric default 10,
+  sort_order int generated always as identity,
+  created_at timestamptz default now()
+);
+
+create table if not exists scores (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references students(id) on delete cascade,
+  assignment_id uuid references assignments(id) on delete cascade,
+  score numeric not null check (score >= 0),
+  updated_at timestamptz default now(),
+  unique(student_id, assignment_id)
+);
+
+alter table students enable row level security;
+alter table assignments enable row level security;
+alter table scores enable row level security;
+
+-- สำหรับเว็บครูแบบง่ายบน GitHub Pages: อนุญาต anon key อ่าน/เขียน
+-- ถ้าต้องการความปลอดภัยสูง ให้เพิ่ม Supabase Auth แล้วเปลี่ยนนโยบายเป็น authenticated เท่านั้น
+create policy "students read" on students for select using (true);
+create policy "students insert" on students for insert with check (true);
+create policy "assignments read" on assignments for select using (true);
+create policy "assignments insert" on assignments for insert with check (true);
+create policy "scores read" on scores for select using (true);
+create policy "scores insert" on scores for insert with check (true);
+create policy "scores update" on scores for update using (true) with check (true);
+
+insert into assignments(title,max_score) values ('งานที่ 1',10) on conflict do nothing;
+
+-- ตัวอย่างเพิ่มนักเรียน
+-- insert into students(student_code,prefix,full_name,room,number) values
+-- ('40201','นาย','ตัวอย่าง นักเรียน','4/2',1),
+-- ('40202','นางสาว','ทดลอง ระบบ','4/2',2);

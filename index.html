@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kru Dew QR Score Studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">KD</div><div><b>QR Score Studio</b><span>By Kru Dew</span></div></div>
+    <button class="nav active" data-page="scorePage">สแกนคะแนน</button>
+    <button class="nav" data-page="workPage">เพิ่มชิ้นงาน</button>
+    <button class="nav" data-page="reportPage">รายงาน</button>
+  </aside>
+
+  <main class="app">
+    <section class="hero">
+      <div><p class="eyebrow">Modern classroom scoring system</p><h1>ระบบสแกน QR บันทึกคะแนน</h1><p>เลือกห้อง + งาน → สแกน QR นักเรียน → สแกน QR คะแนน → บันทึกลง Supabase อัตโนมัติ</p></div>
+      <div class="status-pill" id="connectionStatus">กำลังเชื่อมต่อ...</div>
+    </section>
+
+    <section id="scorePage" class="page active">
+      <div class="grid two">
+        <div class="card">
+          <h2>ตั้งค่าการกรอกคะแนน</h2>
+          <div class="form-grid">
+            <label>ห้องเรียน<select id="roomSelect"></select></label>
+            <label>ชิ้นงาน<select id="assignmentSelect"></select></label>
+          </div>
+          <div class="scan-mode"><span id="scanModeBadge">พร้อมสแกนนักเรียน</span><button id="startScanBtn">เปิดกล้องสแกน</button><button id="stopScanBtn" class="ghost">ปิดกล้อง</button></div>
+          <div id="reader"></div>
+          <p class="hint">ลำดับการสแกน: QR รหัสนักเรียน → QR คะแนนตัวเลข เช่น 8, 9.5, 10</p>
+        </div>
+        <div class="card student-card">
+          <h2>สถานะล่าสุด</h2>
+          <div id="currentStudent" class="empty-state">ยังไม่ได้สแกนนักเรียน</div>
+          <div id="lastSaved" class="saved-box">รอการบันทึกคะแนน</div>
+          <hr />
+          <h3>กรอกเอง Manual</h3>
+          <div class="form-grid">
+            <label>รหัสนักเรียน<input id="manualCode" placeholder="เช่น 12345" /></label>
+            <label>คะแนน<input id="manualScore" type="number" step="0.01" placeholder="เช่น 10" /></label>
+          </div>
+          <button id="manualSaveBtn" class="wide">บันทึก Manual</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="workPage" class="page">
+      <div class="card max-760">
+        <h2>เพิ่มชิ้นงาน</h2>
+        <div class="form-grid">
+          <label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label>
+          <label>คะแนนเต็ม<input id="newMaxScore" type="number" value="10" /></label>
+        </div>
+        <button id="addAssignmentBtn">+ เพิ่มชิ้นงาน</button>
+        <div id="assignmentList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="reportPage" class="page">
+      <div class="card">
+        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แสดงคะแนนเรียงตาม งาน 1, งาน 2, งาน 3...</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button><button id="exportExcelBtn" class="ghost">Excel</button><button id="exportImageBtn" class="ghost">ภาพ PNG</button></div></div>
+        <div id="reportCapture" class="table-wrap"><table id="reportTable"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
