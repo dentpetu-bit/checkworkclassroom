@@ -15,8 +15,8 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); });
-  safe('roomSelect',el=>el.onchange=loadStudents); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave);
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); });
+  safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave);
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportExcelBtn',el=>el.onclick=exportExcel); safe('exportImageBtn',el=>el.onclick=exportImage);
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
@@ -26,26 +26,37 @@ function bindEvents(){
 async function init(){
   setStatus('กำลังเริ่มระบบ...');
   bindEvents();
-  fillSelect($('roomSelect'), cfg.ROOMS||[]); fillSelect($('reportRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentRoomSelect'), cfg.ROOMS||[]); fillSelect($('importRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentFormRoom'), cfg.ROOMS||[]);
+  fillSelect($('roomSelect'), cfg.ROOMS||[]); fillSelect($('workRoomSelect'), cfg.ROOMS||[]); fillSelect($('reportRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentRoomSelect'), cfg.ROOMS||[]); fillSelect($('importRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentFormRoom'), cfg.ROOMS||[]);
   if(!window.supabase){ setStatus('โหลดไลบรารี Supabase ไม่สำเร็จ ให้เช็คอินเทอร์เน็ต/CDN', false); toast('โหลด Supabase JS ไม่สำเร็จ'); return; }
   if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || String(cfg.SUPABASE_URL).includes('YOUR_PROJECT')){ setStatus('ยังไม่ได้ตั้งค่า config.js', false); toast('ต้องมีไฟล์ config.js ใน GitHub root'); return; }
   try{ supabaseClient = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY); }
   catch(e){ setStatus('ตั้งค่า Supabase ไม่ถูกต้อง', false); toast(e.message); return; }
   setStatus('กำลังเชื่อมต่อ Supabase...');
   try{
-    await withTimeout(Promise.all([loadAssignments(), loadStudents(), loadManagedStudents()]),15000,'เชื่อมต่อ Supabase ไม่สำเร็จใน 15 วินาที');
+    await withTimeout(Promise.all([loadAssignments($('roomSelect')?.value || (cfg.ROOMS||[])[0]), loadStudents(), loadManagedStudents()]),15000,'เชื่อมต่อ Supabase ไม่สำเร็จใน 15 วินาที');
     setStatus('เชื่อมต่อ Supabase แล้ว');
     toast('ระบบพร้อมใช้งาน');
   }catch(e){ setStatus('เชื่อมต่อไม่สำเร็จ: '+e.message, false); toast('เช็ค config.js / RLS / อินเทอร์เน็ต'); }
 }
 
-async function loadAssignments(){ if(!supabaseClient) return; const {data,error}=await supabaseClient.from('assignments').select('*').order('sort_order',{ascending:true}); if(error) throw error; assignments=data||[]; fillSelect($('assignmentSelect'),assignments,a=>a.id,a=>`${a.sort_order}. ${a.title} (${a.max_score} คะแนน)`); renderAssignmentList(); }
+async function loadAssignments(roomArg){
+  if(!supabaseClient) return;
+  const room = roomArg || $('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0];
+  if($('workRoomSelect') && roomArg) $('workRoomSelect').value = roomArg;
+  let query = supabaseClient.from('assignments').select('*').order('sort_order',{ascending:true});
+  if(room) query = query.eq('room', room);
+  const {data,error}=await query;
+  if(error) throw error;
+  assignments=data||[];
+  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${idx+1}. ${a.title} (${a.max_score} คะแนน)`);
+  renderAssignmentList();
+}
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
 function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
   el.innerHTML=assignments.map((a,idx)=>`
     <div class="list-item work-item">
-      <div class="work-main"><b>${escapeHtml(a.sort_order)}. ${escapeHtml(a.title)}</b><span>${escapeHtml(a.max_score)} คะแนน</span></div>
+      <div class="work-main"><b>${idx+1}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
       <div class="table-actions">
         <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
         <button class="mini ghost" data-work-down="${a.id}" ${idx===assignments.length-1?'disabled':''}>↓</button>
@@ -58,7 +69,7 @@ function renderAssignmentList(){
   document.querySelectorAll('[data-work-up]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workUp,-1));
   document.querySelectorAll('[data-work-down]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workDown,1));
 }
-async function addAssignment(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const title=$('newAssignmentName')?.value.trim(); const max=Number($('newMaxScore')?.value||10); if(!title) return toast('กรุณากรอกชื่องาน'); const {error}=await supabaseClient.from('assignments').insert({title,max_score:max}); if(error) return toast(error.message); $('newAssignmentName').value=''; await loadAssignments(); toast('เพิ่มชิ้นงานแล้ว'); }
+async function addAssignment(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0]; const title=$('newAssignmentName')?.value.trim(); const max=Number($('newMaxScore')?.value||10); if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน'); if(!title) return toast('กรุณากรอกชื่องาน'); const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max}); if(error) return toast(error.message); $('newAssignmentName').value=''; await loadAssignments(room); if($('roomSelect')?.value===room) await loadAssignments(room); toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว'); }
 async function editAssignment(id){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const a=assignments.find(x=>x.id===id); if(!a) return;
@@ -67,7 +78,7 @@ async function editAssignment(id){
   const max=Number(maxRaw); if(!title.trim() || Number.isNaN(max)) return toast('กรอกข้อมูลชิ้นงานไม่ถูกต้อง');
   const {error}=await supabaseClient.from('assignments').update({title:title.trim(),max_score:max}).eq('id',id);
   if(error) return toast(error.message);
-  await loadAssignments(); toast('แก้ไขชิ้นงานแล้ว');
+  await loadAssignments($('workRoomSelect')?.value); toast('แก้ไขชิ้นงานแล้ว');
 }
 async function deleteAssignment(id){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
@@ -75,7 +86,7 @@ async function deleteAssignment(id){
   if(!confirm(`ยืนยันลบชิ้นงาน "${a.title}"?\nคะแนนของชิ้นงานนี้จะถูกลบตามไปด้วย`)) return;
   const {error}=await supabaseClient.from('assignments').delete().eq('id',id);
   if(error) return toast(error.message);
-  await loadAssignments(); toast('ลบชิ้นงานแล้ว');
+  await loadAssignments($('workRoomSelect')?.value); toast('ลบชิ้นงานแล้ว');
 }
 async function moveAssignment(id,dir){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
@@ -84,7 +95,7 @@ async function moveAssignment(id,dir){
   const aOrder=current.sort_order, bOrder=other.sort_order;
   const {error:e1}=await supabaseClient.from('assignments').update({sort_order:bOrder}).eq('id',current.id); if(e1) return toast(e1.message);
   const {error:e2}=await supabaseClient.from('assignments').update({sort_order:aOrder}).eq('id',other.id); if(e2) return toast(e2.message);
-  await loadAssignments(); toast('เลื่อนลำดับชิ้นงานแล้ว');
+  await loadAssignments($('workRoomSelect')?.value); toast('เลื่อนลำดับชิ้นงานแล้ว');
 }
 function normalizeQR(text){return String(text||'').trim().replace(/^score:/i,'').replace(/^student:/i,'')}
 async function startScan(){ if(!window.Html5Qrcode) return toast('โหลดระบบสแกน QR ไม่สำเร็จ'); if(html5QrCode) return; html5QrCode = new Html5Qrcode('reader'); scanState='student'; updateMode(); try{await html5QrCode.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},onScan,()=>{});toast('เปิดกล้องแล้ว')}catch(e){toast('เปิดกล้องไม่ได้: '+e.message)} }
@@ -105,15 +116,18 @@ async function manualSave(){ const code=$('manualCode')?.value.trim(); const sco
 async function loadReport(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=$('reportRoomSelect')?.value;
+  const {data:roomAssignments,error:e0}=await supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true});
+  if(e0) return toast(e0.message);
+  const reportAssignments=roomAssignments||[];
   const {data:stu,error:e1}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
   if(e1) return toast(e1.message);
   const ids=(stu||[]).map(s=>s.id); let scoreRows=[];
   if(ids.length){const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]}
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
-  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+assignments.map(a=>`<th>${escapeHtml(a.sort_order)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
+  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${idx+1}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
   const tbody=(stu||[]).map(s=>{
     let total=0;
-    const tds=assignments.map(a=>{
+    const tds=reportAssignments.map(a=>{
       const key=`${s.id}_${a.id}`; const has=scoreMap[key]!==undefined; const v=has ? Number(scoreMap[key]) : 0; total+=v;
       return `<td class="score-cell ${has?'':'missing-score'}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
     }).join('');

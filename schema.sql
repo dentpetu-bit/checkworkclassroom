@@ -11,6 +11,7 @@ create table if not exists students (
 
 create table if not exists assignments (
   id uuid primary key default gen_random_uuid(),
+  room text not null default '4/2',
   title text not null,
   max_score numeric default 10,
   sort_order int generated always as identity,
@@ -25,6 +26,13 @@ create table if not exists scores (
   updated_at timestamptz default now(),
   unique(student_id, assignment_id)
 );
+
+
+-- v5: แยกชิ้นงานตามห้อง
+alter table assignments add column if not exists room text;
+update assignments set room = '4/2' where room is null;
+alter table assignments alter column room set default '4/2';
+alter table assignments alter column room set not null;
 
 alter table students enable row level security;
 alter table assignments enable row level security;
@@ -59,7 +67,7 @@ create policy "scores insert" on scores for insert with check (true);
 create policy "scores update" on scores for update using (true) with check (true);
 create policy "scores delete" on scores for delete using (true);
 
-insert into assignments(title,max_score) values ('งานที่ 1',10) on conflict do nothing;
+insert into assignments(room,title,max_score) values ('4/2','งานที่ 1',10) on conflict do nothing;
 
 -- ตัวอย่างเพิ่มนักเรียน
 -- insert into students(student_code,prefix,full_name,room,number) values
