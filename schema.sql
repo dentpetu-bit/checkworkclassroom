@@ -14,7 +14,7 @@ create table if not exists assignments (
   room text not null default '4/2',
   title text not null,
   max_score numeric default 10,
-  sort_order int generated always as identity,
+  sort_order int generated alwsort_order int default 0,
   created_at timestamptz default now()
 );
 
