@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v4-edit-report-work" />
+  <meta name="app-version" content="v6-score-import" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -15,7 +15,7 @@
     <button class="nav active" data-page="scorePage">สแกนคะแนน</button>
     <button class="nav" data-page="workPage">เพิ่มชิ้นงาน</button>
     <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
-    <button class="nav" data-page="reportPage">รายงาน</button>
+    <button class="nav" data-page="reportPage">รายงาน/นำเข้าคะแนน</button>
   </aside>
 
   <main class="app">
@@ -55,9 +55,10 @@
       <div class="card max-760">
         <h2>จัดการชิ้นงาน</h2>
         <div class="form-grid">
-          <label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label>
+          <label>ห้องของชิ้นงาน<select id="workRoomSelect"></select></label>
           <label>คะแนนเต็ม<input id="newMaxScore" type="number" value="10" /></label>
         </div>
+        <label class="mt-12">ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label>
         <button id="addAssignmentBtn">+ เพิ่มชิ้นงาน</button>
         <div id="assignmentList" class="list"></div>
       </div>
@@ -121,6 +122,26 @@
     <section id="reportPage" class="page">
       <div class="card">
         <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แสดงคะแนนเรียงตาม งาน 1, งาน 2, งาน 3... ช่องว่างจะแสดง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button><button id="exportExcelBtn" class="ghost">Excel</button><button id="exportImageBtn" class="ghost">ภาพ PNG</button></div></div>
+        <div class="import-score-panel">
+          <div class="section-head">
+            <div><h2>นำเข้าคะแนนจากภายนอก</h2><p class="hint">โหลด Template ของห้องนี้ → กรอกคะแนนจากไฟล์เดิม → อัปโหลดกลับเข้าระบบ</p></div>
+            <button id="downloadScoreTemplateBtn" class="ghost">ดาวน์โหลด Template คะแนน</button>
+          </div>
+          <div class="form-grid import-grid">
+            <label>เลือกไฟล์ Excel/CSV คะแนน<input id="scoreFileInput" type="file" accept=".xlsx,.xls,.csv" /></label>
+            <label>โหมดนำเข้า<select id="scoreImportMode"><option value="wide">ตารางกว้างตาม Template</option><option value="long">แบบรายการ: รหัสนักเรียน/ชิ้นงาน/คะแนน</option></select></label>
+          </div>
+          <label>วางข้อมูลคะแนน
+            <textarea id="scoreImportText" rows="6" placeholder="รหัสนักเรียน	ชื่อ-สกุล	ห้อง	งานที่ 1
+40201	ตัวอย่าง นักเรียน	4/2	8"></textarea>
+          </label>
+          <div class="button-row">
+            <button id="previewScoreImportBtn" type="button">ตรวจสอบคะแนน</button>
+            <button id="confirmScoreImportBtn" type="button">นำเข้า / อัปเดตคะแนน</button>
+          </div>
+          <p id="scoreImportSummary" class="hint">ยังไม่มีข้อมูลคะแนนนำเข้า</p>
+          <div class="table-wrap compact"><table id="scoreImportPreview"><thead></thead><tbody></tbody></table></div>
+        </div>
         <div id="reportCapture" class="table-wrap"><table id="reportTable"><thead></thead><tbody></tbody></table></div>
       </div>
     </section>
@@ -132,7 +153,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v4"></script>
-  <script src="./app.js?v=v4"></script>
+  <script src="./config.js?v=v6"></script>
+  <script src="./app.js?v=v6"></script>
 </body>
 </html>

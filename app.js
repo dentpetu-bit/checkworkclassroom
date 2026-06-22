@@ -20,7 +20,7 @@ function bindEvents(){
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportExcelBtn',el=>el.onclick=exportExcel); safe('exportImageBtn',el=>el.onclick=exportImage);
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
-  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate);
+  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate);
 }
 
 async function init(){
@@ -207,6 +207,148 @@ function getImportRows(){ const fallbackRoom=$('importRoomSelect')?.value; retur
 function previewImportStudents(){ const rows=getImportRows(); const valid=rows.filter(r=>r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number))); safe('importSummary',el=>el.innerHTML=`ตรวจพบ <b>${rows.length}</b> แถว | พร้อมนำเข้า <b>${valid.length}</b> แถว`); if(!$('importPreview')) return; $('importPreview').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>สถานะ</th></tr>'; $('importPreview').querySelector('tbody').innerHTML=rows.slice(0,80).map(r=>{ const ok=r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number)); return `<tr><td>${escapeHtml(r.number??'')}</td><td>${escapeHtml(r.student_code)}</td><td>${escapeHtml(r.prefix??'')}</td><td class="text-left">${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.room)}</td><td>${ok?'พร้อม':'ข้อมูลไม่ครบ'}</td></tr>` }).join('') || '<tr><td colspan="6">ยังไม่มีข้อมูลตัวอย่าง</td></tr>'; }
 async function importStudents(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const rows=getImportRows().filter(r=>r.student_code && r.full_name && r.room && (r.number===null || !Number.isNaN(r.number))); if(!rows.length) return toast('ยังไม่มีข้อมูลที่พร้อมนำเข้า'); const {error}=await supabaseClient.from('students').upsert(rows,{onConflict:'student_code'}); if(error) return toast(error.message); toast(`นำเข้า/อัปเดตนักเรียนแล้ว ${rows.length} คน`); safe('studentRoomSelect',el=>el.value=$('importRoomSelect')?.value); await Promise.all([loadManagedStudents(), loadStudents()]); }
 function downloadStudentTemplate(){ if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const data=[{student_code:'40201',prefix:'นาย',full_name:'ตัวอย่าง นักเรียน',room:$('importRoomSelect')?.value||'4/2',number:1}]; const ws=XLSX.utils.json_to_sheet(data,{header:['student_code','prefix','full_name','room','number']}); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'students'); XLSX.writeFile(wb,'student_import_template.xlsx'); }
+
+
+// ===== Score import from external files =====
+async function getRoomStudentsAndAssignments(room){
+  if(!supabaseClient) throw new Error('ยังไม่เชื่อมต่อ Supabase');
+  const [{data:stu,error:e1},{data:ass,error:e2}] = await Promise.all([
+    supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}),
+    supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true})
+  ]);
+  if(e1) throw e1; if(e2) throw e2;
+  return {students:stu||[], assignments:ass||[]};
+}
+function readRowsFromTextArea(id){
+  const text=$(id)?.value.trim();
+  if(!text) return [];
+  if(!window.XLSX){ toast('โหลด Excel library ไม่สำเร็จ'); return []; }
+  const wb=XLSX.read(text,{type:'string'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{defval:''});
+}
+async function handleScoreFile(e){
+  const file=e.target.files?.[0]; if(!file) return;
+  if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ');
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+  safe('scoreImportText',el=>el.value=scoreRowsToTsv(rows));
+  previewImportScores();
+}
+function scoreRowsToTsv(rows){
+  if(!rows || !rows.length) return '';
+  const keys=[];
+  rows.forEach(r=>Object.keys(r).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
+  const lines=[keys.join('\t')];
+  rows.forEach(r=>lines.push(keys.map(k=>r[k] ?? '').join('\t')));
+  return lines.join('\n');
+}
+function normalizeHeader(v){
+  return String(v??'').trim().toLowerCase().replace(/\s+/g,'').replace(/^\d+[.)\-_/]*/,'').replace(/^งานที่/,'งาน');
+}
+function rowGet(r, keys){
+  for(const k of keys){ if(Object.prototype.hasOwnProperty.call(r,k) && String(r[k]).trim()!=='') return r[k]; }
+  const lowKeys=Object.keys(r);
+  for(const want of keys){
+    const hit=lowKeys.find(k=>normalizeHeader(k)===normalizeHeader(want));
+    if(hit && String(r[hit]).trim()!=='') return r[hit];
+  }
+  return '';
+}
+function assignmentValueFromWideRow(r, a, idx){
+  const candidates=[a.title, `${idx+1}. ${a.title}`, `${idx+1} ${a.title}`, `งาน ${idx+1}`, `งานที่ ${idx+1}`, `งาน${idx+1}`, `score_${idx+1}`, `score${idx+1}`];
+  // exact first
+  for(const k of candidates){ if(Object.prototype.hasOwnProperty.call(r,k) && String(r[k]).trim()!=='') return r[k]; }
+  // normalized headers
+  const headers=Object.keys(r);
+  const aNorms=candidates.map(normalizeHeader);
+  for(const h of headers){ if(aNorms.includes(normalizeHeader(h)) && String(r[h]).trim()!=='') return r[h]; }
+  return '';
+}
+async function buildScoreImportRecords(){
+  const room=$('reportRoomSelect')?.value || (cfg.ROOMS||[])[0];
+  const mode=$('scoreImportMode')?.value || 'wide';
+  const rawRows=readRowsFromTextArea('scoreImportText');
+  const {students:roomStudents, assignments:roomAssignments}=await getRoomStudentsAndAssignments(room);
+  const stuMap={}; roomStudents.forEach(s=>stuMap[String(s.student_code)]=s);
+  const assByNorm={}; roomAssignments.forEach((a,idx)=>{
+    [a.title, `${idx+1}. ${a.title}`, `${idx+1} ${a.title}`, `งาน ${idx+1}`, `งานที่ ${idx+1}`, `งาน${idx+1}`].forEach(k=>assByNorm[normalizeHeader(k)]=a);
+  });
+  const records=[];
+  rawRows.forEach((r, rowIndex)=>{
+    const code=String(rowGet(r,['student_code','รหัสนักเรียน','รหัส','code']) ?? '').trim();
+    const name=String(rowGet(r,['full_name','ชื่อ-สกุล','ชื่อ']) ?? '').trim();
+    const fileRoom=cleanRoomValue(rowGet(r,['room','ห้อง']), room);
+    if(mode==='long'){
+      const assName=String(rowGet(r,['assignment','assignment_title','ชิ้นงาน','งาน','ชื่อชิ้นงาน']) ?? '').trim();
+      const scoreRaw=rowGet(r,['score','คะแนน']);
+      const a=assByNorm[normalizeHeader(assName)];
+      records.push(makeScoreRecord({rowIndex, code, name, fileRoom, assignment:a, assignmentName:assName, scoreRaw, room, stuMap}));
+    }else{
+      roomAssignments.forEach((a,idx)=>{
+        const scoreRaw=assignmentValueFromWideRow(r,a,idx);
+        if(String(scoreRaw).trim()==='') return; // blank = no import/change
+        records.push(makeScoreRecord({rowIndex, code, name, fileRoom, assignment:a, assignmentName:a.title, scoreRaw, room, stuMap}));
+      });
+    }
+  });
+  return {records, rawRows, roomStudents, roomAssignments};
+}
+function makeScoreRecord({rowIndex, code, name, fileRoom, assignment, assignmentName, scoreRaw, room, stuMap}){
+  const score=Number(scoreRaw);
+  const stu=stuMap[String(code)];
+  let status='พร้อม';
+  if(!code) status='ไม่มีรหัสนักเรียน';
+  else if(!stu) status='ไม่พบนักเรียนในห้องนี้';
+  else if(!assignment) status='ไม่พบชิ้นงานนี้ในห้อง';
+  else if(String(fileRoom||room)!==String(room)) status='ห้องไม่ตรง';
+  else if(Number.isNaN(score) || score<0) status='คะแนนไม่ถูกต้อง';
+  return {rowIndex:rowIndex+1, student_code:code, full_name:name || stu?.full_name || '', room:fileRoom||room, student_id:stu?.id, assignment_id:assignment?.id, assignment_title:assignment?.title || assignmentName || '', score, status, ok:status==='พร้อม'};
+}
+async function previewImportScores(){
+  try{
+    const {records, rawRows}=await buildScoreImportRecords();
+    const valid=records.filter(r=>r.ok);
+    safe('scoreImportSummary',el=>el.innerHTML=`ตรวจพบไฟล์ <b>${rawRows.length}</b> แถว | คะแนนที่พร้อมนำเข้า <b>${valid.length}</b> รายการ`);
+    const tbl=$('scoreImportPreview'); if(!tbl) return;
+    tbl.querySelector('thead').innerHTML='<tr><th>แถว</th><th>รหัส</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>ชิ้นงาน</th><th>คะแนน</th><th>สถานะ</th></tr>';
+    tbl.querySelector('tbody').innerHTML=records.slice(0,160).map(r=>`<tr><td>${r.rowIndex}</td><td>${escapeHtml(r.student_code)}</td><td class="text-left">${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.room)}</td><td class="text-left">${escapeHtml(r.assignment_title)}</td><td><b>${escapeHtml(Number.isNaN(r.score)?'':r.score)}</b></td><td class="${r.ok?'ok-text':'bad-text'}">${escapeHtml(r.status)}</td></tr>`).join('') || '<tr><td colspan="7">ยังไม่มีข้อมูลคะแนนตัวอย่าง</td></tr>';
+  }catch(e){ toast(e.message); safe('scoreImportSummary',el=>el.textContent='ตรวจสอบไม่สำเร็จ: '+e.message); }
+}
+async function importScores(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  try{
+    const {records}=await buildScoreImportRecords();
+    const rows=records.filter(r=>r.ok).map(r=>({student_id:r.student_id, assignment_id:r.assignment_id, score:r.score, updated_at:new Date().toISOString()}));
+    if(!rows.length) return toast('ยังไม่มีคะแนนที่พร้อมนำเข้า');
+    const {error}=await supabaseClient.from('scores').upsert(rows,{onConflict:'student_id,assignment_id'});
+    if(error) return toast(error.message);
+    toast(`นำเข้า/อัปเดตคะแนนแล้ว ${rows.length} รายการ`);
+    await loadReport();
+  }catch(e){ toast(e.message); }
+}
+async function downloadScoreTemplate(){
+  if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ');
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const room=$('reportRoomSelect')?.value || (cfg.ROOMS||[])[0];
+  try{
+    const {students:stu, assignments:ass}=await getRoomStudentsAndAssignments(room);
+    if(!ass.length) return toast('ห้องนี้ยังไม่มีชิ้นงาน ให้เพิ่มชิ้นงานก่อน');
+    const rows=(stu||[]).map(s=>{
+      const row={'เลขที่':s.number??'', 'รหัสนักเรียน':s.student_code, 'คำนำหน้า':s.prefix??'', 'ชื่อ-สกุล':s.full_name, 'ห้อง':room};
+      ass.forEach((a,idx)=>{ row[`${idx+1}. ${a.title}`]=''; });
+      return row;
+    });
+    const ws=XLSX.utils.json_to_sheet(rows,{skipHeader:false});
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,`scores_${room.replace('/','-')}`);
+    XLSX.writeFile(wb,`score_import_template_${room.replace('/','-')}.xlsx`);
+    toast('ดาวน์โหลด Template คะแนนแล้ว');
+  }catch(e){ toast(e.message); }
+}
+
 
 document.addEventListener('DOMContentLoaded', init);
 })();
