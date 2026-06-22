@@ -9,3 +9,13 @@
 /* v6 score import */
 .import-score-panel{margin:18px 0 20px;padding:18px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
 .ok-text{color:#16a34a;font-weight:900}.bad-text{color:#dc2626;font-weight:900}
+.zero-score{
+    background:#ffdddd !important;
+}
+
+.zero-score .score-input{
+    background:#ffdddd !important;
+    color:#c62828 !important;
+    font-weight:900;
+    border:2px solid #ef5350 !important;
+}
