@@ -10,6 +10,8 @@ function toast(msg){ const box=$('toast'); if(!box){ console.log(msg); return; }
 function setStatus(msg, ok=true){ const el=$('connectionStatus'); if(!el) return; el.textContent=msg; el.style.color=ok?'#9fffe7':'#fecaca'; }
 function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach(i=>{ const o=document.createElement('option'); o.value=getVal(i); o.textContent=getText(i); el.appendChild(o); }); }
 function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
+function workNo(a, idx){ const n=Number(a?.sort_order); return Number.isFinite(n) && n>0 ? n : idx+1; }
+function scoreCellClass(score, maxScore){ const v=Number(score); const max=Number(maxScore); if(v===0) return 'zero-score'; if(Number.isFinite(max) && max>0 && v===max) return 'full-score'; return ''; }
 async function withTimeout(promise, ms=12000, label='เชื่อมต่อช้าเกินไป'){ let t; const timeout=new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label)),ms)}); try{return await Promise.race([promise,timeout]);} finally{clearTimeout(t);} }
 window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.message||'ไม่ทราบสาเหตุ'), false); console.error(e.error||e.message); });
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
@@ -48,7 +50,7 @@ async function loadAssignments(roomArg){
   const {data,error}=await query;
   if(error) throw error;
   assignments=data||[];
-  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${idx+1}. ${a.title} (${a.max_score} คะแนน)`);
+  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${workNo(a,idx)}. ${a.title} (${a.max_score} คะแนน)`);
   renderAssignmentList();
 }
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
@@ -56,7 +58,7 @@ function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
   el.innerHTML=assignments.map((a,idx)=>`
     <div class="list-item work-item">
-      <div class="work-main"><b>${idx+1}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
+      <div class="work-main"><b>${workNo(a,idx)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
       <div class="table-actions">
         <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
         <button class="mini ghost" data-work-down="${a.id}" ${idx===assignments.length-1?'disabled':''}>↓</button>
@@ -124,35 +126,14 @@ async function loadReport(){
   const ids=(stu||[]).map(s=>s.id); let scoreRows=[];
   if(ids.length){const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]}
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
-  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${idx+1}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
+  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${workNo(a,idx)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
   const tbody=(stu||[]).map(s=>{
     let total=0;
     const tds=reportAssignments.map(a=>{
-  const key=`${s.id}_${a.id}`;
-  const has=scoreMap[key]!==undefined;
-  const v=has ? Number(scoreMap[key]) : 0;
-
-  total += v;
-
-  let cellClass='';
-
-  if(v===0){
-      cellClass='zero-score';
-  }
-
-  return `
-  <td class="score-cell ${cellClass}">
-      <input
-        class="score-input"
-        type="number"
-        step="0.01"
-        value="${v}"
-        data-student-id="${s.id}"
-        data-assignment-id="${a.id}"
-        data-original="${v}"
-      />
-  </td>`;
-}).join('');
+      const key=`${s.id}_${a.id}`; const has=scoreMap[key]!==undefined; const v=has ? Number(scoreMap[key]) : 0; total+=v;
+      const cellClass = scoreCellClass(v, a.max_score);
+      return `<td class="score-cell ${cellClass}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-max-score="${escapeHtml(a.max_score)}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
+    }).join('');
     return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(total)}</b></td></tr>`
   }).join('');
   $('reportTable').querySelector('thead').innerHTML=thead;
@@ -177,7 +158,12 @@ async function updateReportScore(inp){
   inp.dataset.saving='0';
   if(error){ toast(error.message); inp.value=inp.dataset.original||0; return; }
   inp.dataset.original=String(score);
-  inp.closest('td')?.classList.remove('missing-score');
+  const td=inp.closest('td');
+  if(td){
+    td.classList.remove('missing-score','zero-score','full-score');
+    const cls=scoreCellClass(score, inp.dataset.maxScore);
+    if(cls) td.classList.add(cls);
+  }
   recalcReportRow(inp.closest('tr'));
   toast('อัปเดตคะแนนแล้ว');
 }
@@ -360,7 +346,7 @@ async function downloadScoreTemplate(){
     if(!ass.length) return toast('ห้องนี้ยังไม่มีชิ้นงาน ให้เพิ่มชิ้นงานก่อน');
     const rows=(stu||[]).map(s=>{
       const row={'เลขที่':s.number??'', 'รหัสนักเรียน':s.student_code, 'คำนำหน้า':s.prefix??'', 'ชื่อ-สกุล':s.full_name, 'ห้อง':room};
-      ass.forEach((a,idx)=>{ row[`${idx+1}. ${a.title}`]=''; });
+      ass.forEach((a,idx)=>{ row[`${workNo(a,idx)}. ${a.title}`]=''; });
       return row;
     });
     const ws=XLSX.utils.json_to_sheet(rows,{skipHeader:false});
