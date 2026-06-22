@@ -71,7 +71,31 @@ function renderAssignmentList(){
   document.querySelectorAll('[data-work-up]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workUp,-1));
   document.querySelectorAll('[data-work-down]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workDown,1));
 }
-async function addAssignment(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0]; const title=$('newAssignmentName')?.value.trim(); const max=Number($('newMaxScore')?.value||10); if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน'); if(!title) return toast('กรุณากรอกชื่องาน'); const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max}); if(error) return toast(error.message); $('newAssignmentName').value=''; await loadAssignments(room); if($('roomSelect')?.value===room) await loadAssignments(room); toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว'); }
+async function addAssignment(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0];
+  const title=$('newAssignmentName')?.value.trim();
+  const max=Number($('newMaxScore')?.value||10);
+  if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน');
+  if(!title) return toast('กรุณากรอกชื่องาน');
+
+  // v8: ให้เลขลำดับเป็นของแต่ละห้อง ไม่ใช้ identity global ของฐานข้อมูล
+  const {data:orders,error:orderError}=await supabaseClient
+    .from('assignments')
+    .select('sort_order')
+    .eq('room',room)
+    .order('sort_order',{ascending:false})
+    .limit(1);
+  if(orderError) return toast(orderError.message);
+  const nextOrder = ((orders && orders[0] && Number(orders[0].sort_order)) || 0) + 1;
+
+  const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max,sort_order:nextOrder});
+  if(error) return toast(error.message);
+  $('newAssignmentName').value='';
+  await loadAssignments(room);
+  if($('roomSelect')?.value===room) await loadAssignments(room);
+  toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว');
+}
 async function editAssignment(id){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const a=assignments.find(x=>x.id===id); if(!a) return;

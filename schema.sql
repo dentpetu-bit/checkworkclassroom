@@ -14,7 +14,7 @@ create table if not exists assignments (
   room text not null default '4/2',
   title text not null,
   max_score numeric default 10,
-  sort_order int generated alwsort_order int default 0,
+  sort_order int not null default 0,
   created_at timestamptz default now()
 );
 
@@ -33,6 +33,27 @@ alter table assignments add column if not exists room text;
 update assignments set room = '4/2' where room is null;
 alter table assignments alter column room set default '4/2';
 alter table assignments alter column room set not null;
+
+-- v8: sort_order ต้องแก้ไขได้ เพื่อเลื่อนลำดับและเพิ่มงานแยกตามห้อง
+alter table assignments alter column sort_order drop identity if exists;
+alter table assignments alter column sort_order set default 0;
+update assignments set sort_order = 0 where sort_order is null;
+alter table assignments alter column sort_order set not null;
+
+-- จัดลำดับชิ้นงานใหม่ แยกตามห้อง ให้เริ่ม 1,2,3...
+with ordered as (
+  select
+    id,
+    row_number() over (
+      partition by room
+      order by sort_order, created_at, title
+    ) as new_order
+  from assignments
+)
+update assignments a
+set sort_order = ordered.new_order
+from ordered
+where a.id = ordered.id;
 
 alter table students enable row level security;
 alter table assignments enable row level security;
