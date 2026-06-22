@@ -30,6 +30,20 @@ alter table students enable row level security;
 alter table assignments enable row level security;
 alter table scores enable row level security;
 
+-- Drop existing policies so this file can be run repeatedly
+drop policy if exists "students read" on students;
+drop policy if exists "students insert" on students;
+drop policy if exists "students delete" on students;
+drop policy if exists "students update" on students;
+drop policy if exists "assignments read" on assignments;
+drop policy if exists "assignments insert" on assignments;
+drop policy if exists "assignments update" on assignments;
+drop policy if exists "assignments delete" on assignments;
+drop policy if exists "scores read" on scores;
+drop policy if exists "scores insert" on scores;
+drop policy if exists "scores update" on scores;
+drop policy if exists "scores delete" on scores;
+
 -- สำหรับเว็บครูแบบง่ายบน GitHub Pages: อนุญาต anon key อ่าน/เขียน
 -- ถ้าต้องการความปลอดภัยสูง ให้เพิ่ม Supabase Auth แล้วเปลี่ยนนโยบายเป็น authenticated เท่านั้น
 create policy "students read" on students for select using (true);
@@ -38,9 +52,12 @@ create policy "students delete" on students for delete using (true);
 create policy "students update" on students for update using (true) with check (true);
 create policy "assignments read" on assignments for select using (true);
 create policy "assignments insert" on assignments for insert with check (true);
+create policy "assignments update" on assignments for update using (true) with check (true);
+create policy "assignments delete" on assignments for delete using (true);
 create policy "scores read" on scores for select using (true);
 create policy "scores insert" on scores for insert with check (true);
 create policy "scores update" on scores for update using (true) with check (true);
+create policy "scores delete" on scores for delete using (true);
 
 insert into assignments(title,max_score) values ('งานที่ 1',10) on conflict do nothing;
 
@@ -48,3 +65,4 @@ insert into assignments(title,max_score) values ('งานที่ 1',10) on c
 -- insert into students(student_code,prefix,full_name,room,number) values
 -- ('40201','นาย','ตัวอย่าง นักเรียน','4/2',1),
 -- ('40202','นางสาว','ทดลอง ระบบ','4/2',2);
+

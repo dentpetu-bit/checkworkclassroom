@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="rescue3-stable" />
+  <meta name="app-version" content="v4-edit-report-work" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -53,7 +53,7 @@
 
     <section id="workPage" class="page">
       <div class="card max-760">
-        <h2>เพิ่มชิ้นงาน</h2>
+        <h2>จัดการชิ้นงาน</h2>
         <div class="form-grid">
           <label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label>
           <label>คะแนนเต็ม<input id="newMaxScore" type="number" value="10" /></label>
@@ -120,18 +120,19 @@
 
     <section id="reportPage" class="page">
       <div class="card">
-        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แสดงคะแนนเรียงตาม งาน 1, งาน 2, งาน 3...</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button><button id="exportExcelBtn" class="ghost">Excel</button><button id="exportImageBtn" class="ghost">ภาพ PNG</button></div></div>
+        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แสดงคะแนนเรียงตาม งาน 1, งาน 2, งาน 3... ช่องว่างจะแสดง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button><button id="exportExcelBtn" class="ghost">Excel</button><button id="exportImageBtn" class="ghost">ภาพ PNG</button></div></div>
         <div id="reportCapture" class="table-wrap"><table id="reportTable"><thead></thead><tbody></tbody></table></div>
       </div>
     </section>
   </main>
 
+  <div id="scanOverlay" class="scan-overlay"></div>
   <div id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=rescue3"></script>
-  <script src="./app.js?v=rescue3"></script>
+  <script src="./config.js?v=v4"></script>
+  <script src="./app.js?v=v4"></script>
 </body>
 </html>
