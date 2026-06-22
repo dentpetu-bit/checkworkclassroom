@@ -128,9 +128,31 @@ async function loadReport(){
   const tbody=(stu||[]).map(s=>{
     let total=0;
     const tds=reportAssignments.map(a=>{
-      const key=`${s.id}_${a.id}`; const has=scoreMap[key]!==undefined; const v=has ? Number(scoreMap[key]) : 0; total+=v;
-      return `<td class="score-cell ${has?'':'missing-score'}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
-    }).join('');
+  const key=`${s.id}_${a.id}`;
+  const has=scoreMap[key]!==undefined;
+  const v=has ? Number(scoreMap[key]) : 0;
+
+  total += v;
+
+  let cellClass='';
+
+  if(v===0){
+      cellClass='zero-score';
+  }
+
+  return `
+  <td class="score-cell ${cellClass}">
+      <input
+        class="score-input"
+        type="number"
+        step="0.01"
+        value="${v}"
+        data-student-id="${s.id}"
+        data-assignment-id="${a.id}"
+        data-original="${v}"
+      />
+  </td>`;
+}).join('');
     return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(total)}</b></td></tr>`
   }).join('');
   $('reportTable').querySelector('thead').innerHTML=thead;
