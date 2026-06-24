@@ -136,9 +136,54 @@ function showBigOverlay(kind, main, sub=''){
 }
 async function onScan(decodedText){ const now=Date.now(); if(decodedText===lastText && now-lastAt<1600) return; lastText=decodedText; lastAt=now; const value=normalizeQR(decodedText); if(scanState==='student') await handleStudentCode(value); else await handleScore(value); }
 async function handleStudentCode(code){ let stu = students.find(s=>String(s.student_code)===String(code)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code); selectedStudent=stu; safe('currentStudent',el=>el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`); showBigOverlay('student', `${stu.prefix||''}${stu.full_name}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`); scanState='score'; updateMode(); toast('พบนักเรียนแล้ว → สแกนคะแนนต่อ'); }
-async function handleScore(raw){ const score=Number(raw); if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น'); if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน'); const stu=selectedStudent; await saveScore(stu.student_code, score); showBigOverlay('score', `${score} คะแนน`, `${stu.prefix||''}${stu.full_name}`); scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย'); }
-async function saveScore(studentCode, score){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const assignmentId=$('assignmentSelect')?.value; if(!assignmentId) return toast('กรุณาเลือกชิ้นงาน'); let stu = students.find(s=>String(s.student_code)===String(studentCode)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',studentCode).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบนักเรียน'); const {error}=await supabaseClient.from('scores').upsert({student_id:stu.id,assignment_id:assignmentId,score,updated_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'}); if(error) return toast(error.message); const ass=assignments.find(a=>a.id===assignmentId); safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`); toast('บันทึกคะแนนอัตโนมัติแล้ว'); }
-async function manualSave(){ const code=$('manualCode')?.value.trim(); const score=Number($('manualScore')?.value); if(!code||Number.isNaN(score)) return toast('กรอกข้อมูล Manual ให้ครบ'); await saveScore(code,score); }
+async function handleScore(raw){
+  const score=Number(raw);
+  if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น');
+  if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน');
+  const stu=selectedStudent;
+  const result=await saveScore(stu.student_code, score, {source:'scan'});
+  if(result?.saved){
+    showBigOverlay('score', `${score} คะแนน`, `${stu.prefix||''}${stu.full_name}`);
+  }else if(result?.duplicate){
+    showBigOverlay('warning', 'ลงคะแนนแล้ว', `${stu.prefix||''}${stu.full_name} | คะแนนเดิม ${result.oldScore}`);
+  }
+  scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย');
+}
+async function getExistingScore(studentId, assignmentId){
+  const {data,error}=await supabaseClient.from('scores').select('id,score').eq('student_id',studentId).eq('assignment_id',assignmentId).maybeSingle();
+  if(error) throw error;
+  return data || null;
+}
+function confirmOverwriteScore({stu, ass, oldScore, newScore}){
+  return confirm(`นักเรียนคนนี้ลงคะแนนงานนี้แล้ว\n\nนักเรียน: ${(stu.prefix||'')}${stu.full_name}\nชิ้นงาน: ${ass?.title||''}\nคะแนนเดิม: ${oldScore}\nคะแนนใหม่: ${newScore}\n\nต้องการบันทึกทับคะแนนเดิมหรือไม่?`);
+}
+async function saveScore(studentCode, score, opts={}){
+  if(!supabaseClient){ toast('ยังไม่เชื่อมต่อ Supabase'); return {saved:false}; }
+  const assignmentId=$('assignmentSelect')?.value;
+  if(!assignmentId){ toast('กรุณาเลือกชิ้นงาน'); return {saved:false}; }
+  let stu = students.find(s=>String(s.student_code)===String(studentCode));
+  if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',studentCode).maybeSingle(); stu=data}
+  if(!stu){ toast('ไม่พบนักเรียน'); return {saved:false}; }
+  const ass=assignments.find(a=>a.id===assignmentId);
+  let existing=null;
+  try{ existing=await getExistingScore(stu.id, assignmentId); }catch(e){ toast(e.message); return {saved:false}; }
+  const oldScore=Number(existing?.score ?? 0);
+  const hasRealScore=existing && Number.isFinite(oldScore) && oldScore!==0;
+  if(hasRealScore){
+    toast(`แจ้งเตือน: ${stu.full_name} ลงคะแนนงานนี้แล้ว (${oldScore} คะแนน)`);
+    const ok=confirmOverwriteScore({stu, ass, oldScore, newScore:score});
+    if(!ok){
+      safe('lastSaved',el=>el.innerHTML=`<b class="warn-text">ยังไม่บันทึกทับ:</b> ${escapeHtml(stu.full_name)} | ${escapeHtml(ass?.title||'')} มีคะแนนเดิม <b>${escapeHtml(oldScore)}</b>`);
+      return {saved:false, duplicate:true, oldScore, stu, ass};
+    }
+  }
+  const {error}=await supabaseClient.from('scores').upsert({student_id:stu.id,assignment_id:assignmentId,score,updated_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'});
+  if(error){ toast(error.message); return {saved:false}; }
+  safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`);
+  toast(hasRealScore ? 'บันทึกทับคะแนนเดิมแล้ว' : 'บันทึกคะแนนอัตโนมัติแล้ว');
+  return {saved:true, duplicate:hasRealScore, oldScore, stu, ass};
+}
+async function manualSave(){ const code=$('manualCode')?.value.trim(); const score=Number($('manualScore')?.value); if(!code||Number.isNaN(score)) return toast('กรอกข้อมูล Manual ให้ครบ'); await saveScore(code,score,{source:'manual'}); }
 async function loadReport(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=$('reportRoomSelect')?.value;
@@ -175,7 +220,12 @@ function bindReportScoreInputs(){
 async function updateReportScore(inp){
   if(inp.dataset.saving==='1') return;
   const score=Number(inp.value);
+  const original=Number(inp.dataset.original || 0);
   if(Number.isNaN(score) || score<0){ toast('คะแนนต้องเป็นตัวเลข 0 ขึ้นไป'); inp.value=inp.dataset.original||0; return; }
+  if(original!==0 && score!==original){
+    const ok=confirm(`คะแนนช่องนี้เคยลงไว้แล้ว (${original} คะแนน)\nต้องการแก้เป็น ${score} คะแนนหรือไม่?`);
+    if(!ok){ inp.value=inp.dataset.original||0; return; }
+  }
   inp.dataset.saving='1';
   const payload={student_id:inp.dataset.studentId, assignment_id:inp.dataset.assignmentId, score, updated_at:new Date().toISOString()};
   const {error}=await supabaseClient.from('scores').upsert(payload,{onConflict:'student_id,assignment_id'});
@@ -189,7 +239,7 @@ async function updateReportScore(inp){
     if(cls) td.classList.add(cls);
   }
   recalcReportRow(inp.closest('tr'));
-  toast('อัปเดตคะแนนแล้ว');
+  toast(original!==0 ? 'แก้ไขคะแนนเดิมแล้ว' : 'อัปเดตคะแนนแล้ว');
 }
 function recalcReportRow(tr){
   if(!tr) return; let total=0;

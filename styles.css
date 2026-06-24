@@ -43,3 +43,6 @@
 .report-export-table .zero-score .export-score-value,.report-export-table .missing-score .export-score-value{background:#fee2e2!important;color:#dc2626!important;border:2px solid #ef4444!important}
 .report-export-table .full-score{background:#dcfce7!important}
 .report-export-table .full-score .export-score-value{background:#dcfce7!important;color:#15803d!important;border:2px solid #22c55e!important}
+
+/* v10 duplicate score warning */
+.warn-text{color:#fbbf24;font-weight:900}.scan-overlay.warning .scan-pop-label{color:#fbbf24}.scan-overlay.warning .scan-pop-main{color:#fde68a;text-shadow:0 0 35px rgba(251,191,36,.35)}
