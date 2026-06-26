@@ -11,6 +11,7 @@ function toast(msg){ const box=$('toast'); if(!box){ console.log(msg); return; }
 function setStatus(msg, ok=true){ const el=$('connectionStatus'); if(!el) return; el.textContent=msg; el.style.color=ok?'#9fffe7':'#fecaca'; }
 function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach(i=>{ const o=document.createElement('option'); o.value=getVal(i); o.textContent=getText(i); el.appendChild(o); }); }
 function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
+function workNo(a, idx){ const n=Number(a?.sort_order); return Number.isFinite(n) && n>0 ? n : idx+1; }
 async function withTimeout(promise, ms=12000, label='เชื่อมต่อช้าเกินไป'){ let t; const timeout=new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label)),ms)}); try{return await Promise.race([promise,timeout]);} finally{clearTimeout(t);} }
 window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.message||'ไม่ทราบสาเหตุ'), false); console.error(e.error||e.message); });
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
@@ -95,7 +96,7 @@ async function loadAssignments(roomArg){
   const {data,error}=await query;
   if(error) throw error;
   assignments=data||[];
-  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${idx+1}. ${a.title} (${a.max_score} คะแนน)`);
+  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${workNo(a,idx)}. ${a.title} (${a.max_score} คะแนน)`);
   renderAssignmentList();
 }
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
@@ -103,7 +104,7 @@ function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
   el.innerHTML=assignments.map((a,idx)=>`
     <div class="list-item work-item">
-      <div class="work-main"><b>${idx+1}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
+      <div class="work-main"><b>${workNo(a,idx)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
       <div class="table-actions">
         <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
         <button class="mini ghost" data-work-down="${a.id}" ${idx===assignments.length-1?'disabled':''}>↓</button>
@@ -116,7 +117,23 @@ function renderAssignmentList(){
   document.querySelectorAll('[data-work-up]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workUp,-1));
   document.querySelectorAll('[data-work-down]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workDown,1));
 }
-async function addAssignment(){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0]; const title=$('newAssignmentName')?.value.trim(); const max=Number($('newMaxScore')?.value||10); if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน'); if(!title) return toast('กรุณากรอกชื่องาน'); const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max}); if(error) return toast(error.message); $('newAssignmentName').value=''; await loadAssignments(room); if($('roomSelect')?.value===room) await loadAssignments(room); toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว'); }
+async function addAssignment(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0];
+  const title=$('newAssignmentName')?.value.trim();
+  const max=Number($('newMaxScore')?.value||10);
+  if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน');
+  if(!title) return toast('กรุณากรอกชื่องาน');
+  const {data:orders,error:orderError}=await supabaseClient.from('assignments').select('sort_order').eq('room',room).order('sort_order',{ascending:false}).limit(1);
+  if(orderError) return toast(orderError.message);
+  const nextOrder=((orders && orders[0] && Number(orders[0].sort_order)) || 0) + 1;
+  const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max,sort_order:nextOrder});
+  if(error) return toast(error.message);
+  $('newAssignmentName').value='';
+  await loadAssignments(room);
+  if($('roomSelect')?.value===room) await loadAssignments(room);
+  toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว');
+}
 async function editAssignment(id){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const a=assignments.find(x=>x.id===id); if(!a) return;
@@ -139,7 +156,7 @@ async function moveAssignment(id,dir){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const idx=assignments.findIndex(x=>x.id===id); const other=assignments[idx+dir]; const current=assignments[idx];
   if(!current || !other) return;
-  const aOrder=current.sort_order, bOrder=other.sort_order;
+  const aOrder=workNo(current,idx), bOrder=workNo(other,idx+dir);
   const {error:e1}=await supabaseClient.from('assignments').update({sort_order:bOrder}).eq('id',current.id); if(e1) return toast(e1.message);
   const {error:e2}=await supabaseClient.from('assignments').update({sort_order:aOrder}).eq('id',other.id); if(e2) return toast(e2.message);
   await loadAssignments($('workRoomSelect')?.value); toast('เลื่อนลำดับชิ้นงานแล้ว');
@@ -171,7 +188,7 @@ async function loadReport(){
   const ids=(stu||[]).map(s=>s.id); let scoreRows=[];
   if(ids.length){const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]}
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
-  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${idx+1}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
+  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${workNo(a,idx)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
   const tbody=(stu||[]).map(s=>{
     let total=0;
     const tds=reportAssignments.map(a=>{
@@ -385,7 +402,7 @@ async function downloadScoreTemplate(){
     if(!ass.length) return toast('ห้องนี้ยังไม่มีชิ้นงาน ให้เพิ่มชิ้นงานก่อน');
     const rows=(stu||[]).map(s=>{
       const row={'เลขที่':s.number??'', 'รหัสนักเรียน':s.student_code, 'คำนำหน้า':s.prefix??'', 'ชื่อ-สกุล':s.full_name, 'ห้อง':room};
-      ass.forEach((a,idx)=>{ row[`${idx+1}. ${a.title}`]=''; });
+      ass.forEach((a,idx)=>{ row[`${workNo(a,idx)}. ${a.title}`]=''; });
       return row;
     });
     const ws=XLSX.utils.json_to_sheet(rows,{skipHeader:false});
