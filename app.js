@@ -9,9 +9,9 @@ const $ = id => document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el && typeof fn === 'function') fn(el); return el; };
 function toast(msg){ const box=$('toast'); if(!box){ console.log(msg); return; } const el=document.createElement('div'); el.className='toast'; el.textContent=msg; box.appendChild(el); setTimeout(()=>el.remove(),3500); }
 function setStatus(msg, ok=true){ const el=$('connectionStatus'); if(!el) return; el.textContent=msg; el.style.color=ok?'#9fffe7':'#fecaca'; }
-function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach(i=>{ const o=document.createElement('option'); o.value=getVal(i); o.textContent=getText(i); el.appendChild(o); }); }
+function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach((i,idx)=>{ const o=document.createElement('option'); o.value=getVal(i,idx); o.textContent=getText(i,idx); el.appendChild(o); }); }
 function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
-function workNo(a, idx){ const n=Number(a?.sort_order); return Number.isFinite(n) && n>0 ? n : idx+1; }
+function workNo(a, idx){ const n=Number(a?.sort_order); const fallback=Number(idx)+1; return Number.isFinite(n) && n>0 ? n : (Number.isFinite(fallback) && fallback>0 ? fallback : 1); }
 async function withTimeout(promise, ms=12000, label='เชื่อมต่อช้าเกินไป'){ let t; const timeout=new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label)),ms)}); try{return await Promise.race([promise,timeout]);} finally{clearTimeout(t);} }
 window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.message||'ไม่ทราบสาเหตุ'), false); console.error(e.error||e.message); });
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
