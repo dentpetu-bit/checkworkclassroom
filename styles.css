@@ -10,39 +10,7 @@
 .import-score-panel{margin:18px 0 20px;padding:18px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
 .ok-text{color:#16a34a;font-weight:900}.bad-text{color:#dc2626;font-weight:900}
 
-/* v7: highlight report scores */
-.zero-score{
-  background:#fee2e2 !important;
-}
-.zero-score .score-input{
-  background:#fee2e2 !important;
-  color:#b91c1c !important;
-  border:2px solid #ef4444 !important;
-  font-weight:900;
-}
-.full-score{
-  background:#dcfce7 !important;
-}
-.full-score .score-input{
-  background:#dcfce7 !important;
-  color:#166534 !important;
-  border:2px solid #22c55e !important;
-  font-weight:900;
-}
 
-
-/* v9 full report export */
-.report-export-holder{position:fixed;left:-100000px;top:0;background:#fff;color:#111827;padding:24px;width:max-content;z-index:-1}
-.report-export-title{font-size:28px;font-weight:900;margin-bottom:14px;color:#111827}
-.report-export-table{border-collapse:collapse;background:#fff;color:#111827;min-width:0!important;width:max-content}
-.report-export-table th,.report-export-table td{border:1px solid #d1d5db;padding:9px 10px;text-align:center;white-space:nowrap}
-.report-export-table th{background:#eef6ff;font-weight:900;color:#111827}
-.report-export-table .text-left{text-align:left!important}
-.export-score-value{display:inline-block;min-width:46px;padding:6px 10px;border-radius:9px;background:#fff;color:#111827;border:1px solid #d1d5db;font-weight:900}
-.report-export-table .zero-score,.report-export-table .missing-score{background:#fecaca!important}
-.report-export-table .zero-score .export-score-value,.report-export-table .missing-score .export-score-value{background:#fee2e2!important;color:#dc2626!important;border:2px solid #ef4444!important}
-.report-export-table .full-score{background:#dcfce7!important}
-.report-export-table .full-score .export-score-value{background:#dcfce7!important;color:#15803d!important;border:2px solid #22c55e!important}
-
-/* v10 duplicate score warning */
-.warn-text{color:#fbbf24;font-weight:900}.scan-overlay.warning .scan-pop-label{color:#fbbf24}.scan-overlay.warning .scan-pop-main{color:#fde68a;text-shadow:0 0 35px rgba(251,191,36,.35)}
+/* v11: Barcode / QR scanner keyboard-wedge mode */
+.barcode-panel{margin:16px 0 14px;padding:16px;border-radius:20px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12)}
+.barcode-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.barcode-head b{font-size:18px}.barcode-head span{color:#9fb3ce;font-weight:700;font-size:13px}.barcode-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.barcode-row input{background:#06111f;border:2px solid rgba(32,213,255,.35);font-weight:900;letter-spacing:.03em}.barcode-row input:focus{outline:none;border-color:#20d5ff;box-shadow:0 0 0 4px rgba(32,213,255,.14)}.barcode-hint{margin:10px 0 0}.scanner-ready{box-shadow:0 0 0 4px rgba(15,232,179,.16)!important;border-color:#0fe8b3!important}@media(max-width:900px){.barcode-row{grid-template-columns:1fr}.barcode-head{display:block}}
