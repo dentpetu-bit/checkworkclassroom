@@ -12,6 +12,7 @@ function setStatus(msg, ok=true){ const el=$('connectionStatus'); if(!el) return
 function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach((i,idx)=>{ const o=document.createElement('option'); o.value=getVal(i,idx); o.textContent=getText(i,idx); el.appendChild(o); }); }
 function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
 function workNo(a, idx){ const n=Number(a?.sort_order); const fallback=Number(idx)+1; return Number.isFinite(n) && n>0 ? n : (Number.isFinite(fallback) && fallback>0 ? fallback : 1); }
+function scoreCellClass(score, maxScore){ const v=Number(score); const max=Number(maxScore); if(v===0) return 'zero-score'; if(Number.isFinite(max) && max>0 && v===max) return 'full-score'; return ''; }
 async function withTimeout(promise, ms=12000, label='เชื่อมต่อช้าเกินไป'){ let t; const timeout=new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label)),ms)}); try{return await Promise.race([promise,timeout]);} finally{clearTimeout(t);} }
 window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.message||'ไม่ทราบสาเหตุ'), false); console.error(e.error||e.message); });
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
@@ -174,8 +175,31 @@ function showBigOverlay(kind, main, sub=''){
 }
 async function onScan(decodedText){ const now=Date.now(); if(decodedText===lastText && now-lastAt<1600) return; lastText=decodedText; lastAt=now; const value=normalizeQR(decodedText); if(scanState==='student') await handleStudentCode(value); else await handleScore(value); }
 async function handleStudentCode(code){ let stu = students.find(s=>String(s.student_code)===String(code)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code); selectedStudent=stu; safe('currentStudent',el=>el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`); showBigOverlay('student', `${stu.prefix||''}${stu.full_name}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`); scanState='score'; updateMode(); toast('พบนักเรียนแล้ว → สแกนคะแนนต่อ'); }
-async function handleScore(raw){ const score=Number(raw); if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น'); if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน'); const stu=selectedStudent; await saveScore(stu.student_code, score); showBigOverlay('score', `${score} คะแนน`, `${stu.prefix||''}${stu.full_name}`); scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย'); }
-async function saveScore(studentCode, score){ if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const assignmentId=$('assignmentSelect')?.value; if(!assignmentId) return toast('กรุณาเลือกชิ้นงาน'); let stu = students.find(s=>String(s.student_code)===String(studentCode)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',studentCode).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบนักเรียน'); const {error}=await supabaseClient.from('scores').upsert({student_id:stu.id,assignment_id:assignmentId,score,updated_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'}); if(error) return toast(error.message); const ass=assignments.find(a=>a.id===assignmentId); safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`); toast('บันทึกคะแนนอัตโนมัติแล้ว'); }
+async function handleScore(raw){
+  const score=Number(raw); if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น'); if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน');
+  const stu=selectedStudent; const result=await saveScore(stu.student_code, score);
+  if(result?.saved) showBigOverlay('score', `${score} คะแนน`, `${stu.prefix||''}${stu.full_name}`);
+  else if(result?.duplicate) showBigOverlay('warning', 'ลงคะแนนแล้ว', `${stu.prefix||''}${stu.full_name} | คะแนนเดิม ${result.oldScore}`);
+  scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย');
+}
+async function getExistingScore(studentId, assignmentId){ const {data,error}=await supabaseClient.from('scores').select('id,score').eq('student_id',studentId).eq('assignment_id',assignmentId).maybeSingle(); if(error) throw error; return data || null; }
+async function saveScore(studentCode, score){
+  if(!supabaseClient){ toast('ยังไม่เชื่อมต่อ Supabase'); return {saved:false}; }
+  const assignmentId=$('assignmentSelect')?.value; if(!assignmentId){ toast('กรุณาเลือกชิ้นงาน'); return {saved:false}; }
+  let stu = students.find(s=>String(s.student_code)===String(studentCode)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',studentCode).maybeSingle(); stu=data}
+  if(!stu){ toast('ไม่พบนักเรียน'); return {saved:false}; }
+  const ass=assignments.find(a=>a.id===assignmentId);
+  let existing=null; try{ existing=await getExistingScore(stu.id, assignmentId); }catch(e){ toast(e.message); return {saved:false}; }
+  const oldScore=Number(existing?.score ?? 0);
+  if(existing && oldScore!==0){
+    toast(`แจ้งเตือน: ${stu.full_name} ลงคะแนนงานนี้แล้ว (${oldScore} คะแนน)`);
+    const ok=confirm(`นักเรียนคนนี้ลงคะแนนงานนี้แล้ว\n\nนักเรียน: ${(stu.prefix||'')}${stu.full_name}\nชิ้นงาน: ${ass?.title||''}\nคะแนนเดิม: ${oldScore}\nคะแนนใหม่: ${score}\n\nต้องการบันทึกทับคะแนนเดิมหรือไม่?`);
+    if(!ok){ safe('lastSaved',el=>el.innerHTML=`<b class="warn-text">ยังไม่บันทึกทับ:</b> ${escapeHtml(stu.full_name)} | ${escapeHtml(ass?.title||'')} มีคะแนนเดิม <b>${escapeHtml(oldScore)}</b>`); return {saved:false, duplicate:true, oldScore}; }
+  }
+  const {error}=await supabaseClient.from('scores').upsert({student_id:stu.id,assignment_id:assignmentId,score,updated_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'});
+  if(error){ toast(error.message); return {saved:false}; }
+  safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`); toast(existing && oldScore!==0 ? 'บันทึกทับคะแนนเดิมแล้ว' : 'บันทึกคะแนนอัตโนมัติแล้ว'); return {saved:true};
+}
 async function manualSave(){ const code=$('manualCode')?.value.trim(); const score=Number($('manualScore')?.value); if(!code||Number.isNaN(score)) return toast('กรอกข้อมูล Manual ให้ครบ'); await saveScore(code,score); }
 async function loadReport(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
@@ -193,7 +217,8 @@ async function loadReport(){
     let total=0;
     const tds=reportAssignments.map(a=>{
       const key=`${s.id}_${a.id}`; const has=scoreMap[key]!==undefined; const v=has ? Number(scoreMap[key]) : 0; total+=v;
-      return `<td class="score-cell ${has?'':'missing-score'}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
+      const cellClass = scoreCellClass(v, a.max_score);
+      return `<td class="score-cell ${cellClass}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-max-score="${escapeHtml(a.max_score)}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
     }).join('');
     return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(total)}</b></td></tr>`
   }).join('');
@@ -211,25 +236,28 @@ function bindReportScoreInputs(){
 }
 async function updateReportScore(inp){
   if(inp.dataset.saving==='1') return;
-  const score=Number(inp.value);
+  const score=Number(inp.value); const original=Number(inp.dataset.original || 0);
   if(Number.isNaN(score) || score<0){ toast('คะแนนต้องเป็นตัวเลข 0 ขึ้นไป'); inp.value=inp.dataset.original||0; return; }
+  if(original!==0 && score!==original){ const ok=confirm(`คะแนนช่องนี้เคยลงไว้แล้ว (${original} คะแนน)\nต้องการแก้เป็น ${score} คะแนนหรือไม่?`); if(!ok){ inp.value=inp.dataset.original||0; return; } }
   inp.dataset.saving='1';
   const payload={student_id:inp.dataset.studentId, assignment_id:inp.dataset.assignmentId, score, updated_at:new Date().toISOString()};
   const {error}=await supabaseClient.from('scores').upsert(payload,{onConflict:'student_id,assignment_id'});
   inp.dataset.saving='0';
   if(error){ toast(error.message); inp.value=inp.dataset.original||0; return; }
   inp.dataset.original=String(score);
-  inp.closest('td')?.classList.remove('missing-score');
+  const td=inp.closest('td'); if(td){ td.classList.remove('missing-score','zero-score','full-score'); const cls=scoreCellClass(score, inp.dataset.maxScore); if(cls) td.classList.add(cls); }
   recalcReportRow(inp.closest('tr'));
-  toast('อัปเดตคะแนนแล้ว');
+  toast(original!==0 ? 'แก้ไขคะแนนเดิมแล้ว' : 'อัปเดตคะแนนแล้ว');
 }
 function recalcReportRow(tr){
   if(!tr) return; let total=0;
   tr.querySelectorAll('.score-input').forEach(i=>{const n=Number(i.value); if(!Number.isNaN(n)) total+=n;});
   const el=tr.querySelector('.row-total'); if(el) el.textContent=String(total);
 }
-function exportExcel(){ if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const wb=XLSX.utils.table_to_book($('reportTable'),{sheet:'Report'}); XLSX.writeFile(wb,`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.xlsx`); }
-async function exportImage(){ if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ'); const canvas=await html2canvas($('reportCapture'),{backgroundColor:'#ffffff',scale:2}); const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.png`; a.click(); }
+function getReportAOA(){ const table=$('reportTable'); if(!table) return []; const aoa=[]; const head=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim()); if(head.length) aoa.push(head); table.querySelectorAll('tbody tr').forEach(tr=>{ const row=[...tr.children].map(td=>{ const input=td.querySelector('input'); if(input) return Number(input.value || 0); const txt=td.textContent.trim(); const n=Number(txt); return txt!=='' && !Number.isNaN(n) ? n : txt; }); if(row.length) aoa.push(row); }); return aoa; }
+function exportExcel(){ if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const aoa=getReportAOA(); if(!aoa.length) return toast('กรุณาโหลดรายงานก่อน'); const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Report'); XLSX.writeFile(wb,`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.xlsx`); }
+function cloneReportTableForExport(){ const original=$('reportTable'); if(!original) return null; const clone=original.cloneNode(true); clone.querySelectorAll('input.score-input').forEach(inp=>{ const span=document.createElement('span'); span.className='export-score-value'; span.textContent=inp.value || '0'; inp.replaceWith(span); }); clone.classList.add('report-export-table'); return clone; }
+async function exportImage(){ if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ'); const table=$('reportTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดรายงานก่อน'); const holder=document.createElement('div'); holder.className='report-export-holder'; const title=document.createElement('div'); title.className='report-export-title'; title.textContent=`รายงานคะแนน ห้อง ${$('reportRoomSelect')?.value || ''}`; const clone=cloneReportTableForExport(); holder.appendChild(title); holder.appendChild(clone); document.body.appendChild(holder); try{ const width=holder.scrollWidth; const height=holder.scrollHeight; const canvas=await html2canvas(holder,{backgroundColor:'#ffffff',scale:2,width,height,windowWidth:width,windowHeight:height,scrollX:0,scrollY:0}); const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.png`; a.click(); toast('ส่งออกภาพรายงานแล้ว'); }catch(e){ toast('ส่งออกภาพไม่สำเร็จ: '+e.message); }finally{ holder.remove(); } }
 async function loadManagedStudents(){ if(!supabaseClient) return; const room=$('studentRoomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; managedStudents=data||[]; renderStudentTable(); }
 function renderStudentTable(){ if(!$('studentTable')) return; const q=($('studentSearchInput')?.value||'').trim().toLowerCase(); const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q))); safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`); $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>'; $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.number??'')}</td><td>${escapeHtml(s.student_code)}</td><td>${escapeHtml(s.prefix??'')}</td><td class="text-left"><b>${escapeHtml(s.full_name)}</b></td><td>${escapeHtml(s.room)}</td><td class="table-actions"><button class="mini" data-edit="${s.id}">แก้ไข</button><button class="mini danger" data-delete="${s.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนในห้องนี้</td></tr>'; document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete)); }
 function clearStudentForm(){ ['studentId','studentCode','studentPrefix','studentFullName','studentNumber'].forEach(id=>safe(id,el=>el.value='')); safe('studentFormRoom',el=>el.value=$('studentRoomSelect')?.value || (cfg.ROOMS||[])[0] || ''); safe('studentFormTitle',el=>el.textContent='เพิ่มนักเรียน'); safe('saveStudentBtn',el=>el.textContent='บันทึกนักเรียน'); }
