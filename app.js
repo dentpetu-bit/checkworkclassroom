@@ -18,12 +18,12 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportExcelBtn',el=>el.onclick=exportExcel); safe('exportImageBtn',el=>el.onclick=exportImage);
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
-  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate);
+  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel);
 }
 
 function focusBarcodeInput(){
@@ -75,7 +75,7 @@ async function init(){
   setStatus('กำลังเริ่มระบบ...');
   bindEvents();
   bindKeyboardScannerListener();
-  fillSelect($('roomSelect'), cfg.ROOMS||[]); fillSelect($('workRoomSelect'), cfg.ROOMS||[]); fillSelect($('reportRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentRoomSelect'), cfg.ROOMS||[]); fillSelect($('importRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentFormRoom'), cfg.ROOMS||[]);
+  fillSelect($('roomSelect'), cfg.ROOMS||[]); fillSelect($('workRoomSelect'), cfg.ROOMS||[]); fillSelect($('reportRoomSelect'), cfg.ROOMS||[]); fillSelect($('realRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentRoomSelect'), cfg.ROOMS||[]); fillSelect($('importRoomSelect'), cfg.ROOMS||[]); fillSelect($('studentFormRoom'), cfg.ROOMS||[]);
   if(!window.supabase){ setStatus('โหลดไลบรารี Supabase ไม่สำเร็จ ให้เช็คอินเทอร์เน็ต/CDN', false); toast('โหลด Supabase JS ไม่สำเร็จ'); return; }
   if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || String(cfg.SUPABASE_URL).includes('YOUR_PROJECT')){ setStatus('ยังไม่ได้ตั้งค่า config.js', false); toast('ต้องมีไฟล์ config.js ใน GitHub root'); return; }
   try{ supabaseClient = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY); }
@@ -439,6 +439,69 @@ async function downloadScoreTemplate(){
     XLSX.writeFile(wb,`score_import_template_${room.replace('/','-')}.xlsx`);
     toast('ดาวน์โหลด Template คะแนนแล้ว');
   }catch(e){ toast(e.message); }
+}
+
+
+// ===== Real score / grade =====
+const realGroups = [
+  {key:'pre', label:'ก่อนกลางภาค', maxId:'realMaxPre', selectId:'realJobsPre'},
+  {key:'mid', label:'กลางภาค', maxId:'realMaxMid', selectId:'realJobsMid'},
+  {key:'post', label:'หลังกลางภาค', maxId:'realMaxPost', selectId:'realJobsPost'},
+  {key:'final', label:'ปลายภาค', maxId:'realMaxFinal', selectId:'realJobsFinal'}
+];
+function gradeFromScore(total){
+  const s=Number(total)||0;
+  if(s>=80) return '4.0'; if(s>=75) return '3.5'; if(s>=70) return '3.0'; if(s>=65) return '2.5';
+  if(s>=60) return '2.0'; if(s>=55) return '1.5'; if(s>=50) return '1.0'; return '0';
+}
+function selectedValues(id){ return [...($(id)?.selectedOptions||[])].map(o=>o.value); }
+function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+async function loadRealScoreConfig(){
+  if(!supabaseClient) return;
+  const room=$('realRoomSelect')?.value || (cfg.ROOMS||[])[0];
+  const {data,error}=await supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true});
+  if(error) return toast(error.message);
+  const ass=data||[];
+  realGroups.forEach(g=>{
+    const sel=$(g.selectId); if(!sel) return;
+    const old=selectedValues(g.selectId);
+    sel.innerHTML=ass.map((a,idx)=>`<option value="${a.id}" ${old.includes(a.id)?'selected':''}>${workNo(a,idx)}. ${escapeHtml(a.title)} (${escapeHtml(a.max_score)} คะแนน)</option>`).join('');
+  });
+  safe('realScoreTable',tbl=>{tbl.querySelector('thead').innerHTML=''; tbl.querySelector('tbody').innerHTML='';});
+}
+async function loadRealScore(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const room=$('realRoomSelect')?.value || (cfg.ROOMS||[])[0];
+  const [{data:stu,error:e1},{data:ass,error:e2}] = await Promise.all([
+    supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}),
+    supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true})
+  ]);
+  if(e1) return toast(e1.message); if(e2) return toast(e2.message);
+  const students2=stu||[], assignments2=ass||[], assignmentMap={}; assignments2.forEach(a=>assignmentMap[a.id]=a);
+  const ids=students2.map(s=>s.id); let scoreRows=[];
+  if(ids.length){ const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]; }
+  const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=Number(r.score)||0);
+  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+realGroups.map(g=>`<th>${g.label}</th>`).join('')+'<th>รวม</th><th>เกรด</th></tr>';
+  const tbody=students2.map(s=>{
+    let total=0;
+    const cells=realGroups.map(g=>{
+      const max=Number($(g.maxId)?.value||0); const jobIds=selectedValues(g.selectId);
+      let got=0, full=0;
+      jobIds.forEach(id=>{ const a=assignmentMap[id]; if(!a) return; got+=scoreMap[`${s.id}_${id}`]||0; full+=Number(a.max_score)||0; });
+      const real=full>0 ? round2((got/full)*max) : 0; total+=real;
+      return `<td><b>${real}</b><div class="real-sub">${round2(got)} / ${round2(full)}</div></td>`;
+    }).join('');
+    total=round2(total);
+    return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${cells}<td><b>${total}</b></td><td><b>${gradeFromScore(total)}</b></td></tr>`;
+  }).join('');
+  const table=$('realScoreTable'); table.querySelector('thead').innerHTML=thead; table.querySelector('tbody').innerHTML=tbody;
+  toast('คำนวณคะแนนจริงแล้ว');
+}
+function exportRealExcel(){
+  if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ');
+  const table=$('realScoreTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดคะแนนจริงก่อน');
+  const wb=XLSX.utils.table_to_book(table,{sheet:'RealScore'});
+  XLSX.writeFile(wb,`คะแนนจริง_${$('realRoomSelect')?.value||''}.xlsx`);
 }
 
 

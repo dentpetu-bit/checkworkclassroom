@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v14-v10-report-barcode" />
+  <meta name="app-version" content="v15-real-score" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v11" />
+  <link rel="stylesheet" href="styles.css?v=v15" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -16,6 +16,7 @@
     <button class="nav" data-page="workPage">เพิ่มชิ้นงาน</button>
     <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
     <button class="nav" data-page="reportPage">รายงาน/นำเข้าคะแนน</button>
+    <button class="nav" data-page="realScorePage">คะแนนจริง</button>
   </aside>
 
   <main class="app">
@@ -156,6 +157,23 @@
         <div id="reportCapture" class="table-wrap"><table id="reportTable"><thead></thead><tbody></tbody></table></div>
       </div>
     </section>
+
+    <section id="realScorePage" class="page">
+      <div class="card">
+        <div class="report-head">
+          <div><h2>คะแนนจริงและเกรด</h2><p>เลือกงานคะแนนดิบในแต่ละช่วง ระบบจะเฉลี่ยตามคะแนนเต็มของงาน แล้วแปลงเป็นคะแนนจริงตามคะแนนเต็มที่กำหนด</p></div>
+          <div class="actions"><select id="realRoomSelect"></select><button id="loadRealScoreBtn">โหลดคะแนนจริง</button><button id="exportRealExcelBtn" class="ghost">Excel</button></div>
+        </div>
+        <div id="realScoreConfig" class="real-score-grid">
+          <div class="real-box"><h3>ก่อนกลางภาค</h3><label>คะแนนเต็ม<input id="realMaxPre" type="number" value="30" step="0.01"></label><label>เลือกงาน<select id="realJobsPre" multiple size="7"></select></label></div>
+          <div class="real-box"><h3>กลางภาค</h3><label>คะแนนเต็ม<input id="realMaxMid" type="number" value="20" step="0.01"></label><label>เลือกงาน<select id="realJobsMid" multiple size="7"></select></label></div>
+          <div class="real-box"><h3>หลังกลางภาค</h3><label>คะแนนเต็ม<input id="realMaxPost" type="number" value="30" step="0.01"></label><label>เลือกงาน<select id="realJobsPost" multiple size="7"></select></label></div>
+          <div class="real-box"><h3>ปลายภาค</h3><label>คะแนนเต็ม<input id="realMaxFinal" type="number" value="20" step="0.01"></label><label>เลือกงาน<select id="realJobsFinal" multiple size="7"></select></label></div>
+        </div>
+        <p class="hint">สูตร: คะแนนจริงแต่ละช่อง = (คะแนนดิบที่ได้รวม ÷ คะแนนเต็มของงานที่เลือกทั้งหมด) × คะแนนเต็มของช่องนั้น</p>
+        <div class="table-wrap"><table id="realScoreTable"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </section>
   </main>
 
   <div id="scanOverlay" class="scan-overlay"></div>
@@ -164,7 +182,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v14"></script>
-  <script src="./app.js?v=v14"></script>
+  <script src="./config.js?v=v15"></script>
+  <script src="./app.js?v=v15"></script>
 </body>
 </html>
