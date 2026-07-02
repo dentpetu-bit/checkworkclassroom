@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v15-real-score" />
+  <meta name="app-version" content="v16-period-real-image" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="styles.css?v=v15" />
 </head>
@@ -13,7 +13,7 @@
   <aside class="sidebar">
     <div class="brand"><div class="logo">KD</div><div><b>QR Score Studio</b><span>By Kru Dew</span></div></div>
     <button class="nav active" data-page="scorePage">สแกนคะแนน</button>
-    <button class="nav" data-page="workPage">เพิ่มชิ้นงาน</button>
+    <button class="nav" data-page="workPage">จัดการชิ้นงาน</button>
     <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
     <button class="nav" data-page="reportPage">รายงาน/นำเข้าคะแนน</button>
     <button class="nav" data-page="realScorePage">คะแนนจริง</button>
@@ -70,7 +70,7 @@
           <label>ห้องของชิ้นงาน<select id="workRoomSelect"></select></label>
           <label>คะแนนเต็ม<input id="newMaxScore" type="number" value="10" /></label>
         </div>
-        <label class="mt-12">ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label>
+        <div class="form-grid mt-12"><label>ช่วงชิ้นงาน<select id="workPeriodSelect"><option value="pre">ก่อนกลางภาค</option><option value="post">หลังกลางภาค</option></select></label><label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label></div>
         <button id="addAssignmentBtn">+ เพิ่มชิ้นงาน</button>
         <div id="assignmentList" class="list"></div>
       </div>
@@ -162,7 +162,7 @@
       <div class="card">
         <div class="report-head">
           <div><h2>คะแนนจริงและเกรด</h2><p>เลือกงานคะแนนดิบในแต่ละช่วง ระบบจะเฉลี่ยตามคะแนนเต็มของงาน แล้วแปลงเป็นคะแนนจริงตามคะแนนเต็มที่กำหนด</p></div>
-          <div class="actions"><select id="realRoomSelect"></select><button id="loadRealScoreBtn">โหลดคะแนนจริง</button><button id="exportRealExcelBtn" class="ghost">Excel</button></div>
+          <div class="actions"><select id="realRoomSelect"></select><button id="loadRealScoreBtn">โหลดคะแนนจริง</button><button id="exportRealExcelBtn" class="ghost">Excel</button><button id="exportRealImageBtn" class="ghost">ภาพ PNG</button></div>
         </div>
         <div id="realScoreConfig" class="real-score-grid">
           <div class="real-box"><h3>ก่อนกลางภาค</h3><label>คะแนนเต็ม<input id="realMaxPre" type="number" value="30" step="0.01"></label><label>เลือกงาน<select id="realJobsPre" multiple size="7"></select></label></div>
@@ -182,7 +182,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v15"></script>
-  <script src="./app.js?v=v15"></script>
+  <script src="./config.js?v=v16"></script>
+  <script src="./app.js?v=v16"></script>
 </body>
 </html>

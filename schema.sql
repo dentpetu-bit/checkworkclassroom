@@ -14,7 +14,8 @@ create table if not exists assignments (
   room text not null default '4/2',
   title text not null,
   max_score numeric default 10,
-  sort_order int generated always as identity,
+  sort_order int not null default 0,
+  period text not null default 'pre',
   created_at timestamptz default now()
 );
 
@@ -27,6 +28,18 @@ create table if not exists scores (
   unique(student_id, assignment_id)
 );
 
+
+
+-- v16: แยกชิ้นงานก่อน/หลังกลางภาค
+alter table assignments add column if not exists period text default 'pre';
+update assignments set period='pre' where period is null;
+alter table assignments alter column period set not null;
+
+-- sort_order ต้องแก้ไขได้สำหรับปุ่มเลื่อนลำดับ
+alter table assignments alter column sort_order drop identity if exists;
+alter table assignments alter column sort_order set default 0;
+update assignments set sort_order=0 where sort_order is null;
+alter table assignments alter column sort_order set not null;
 
 -- v5: แยกชิ้นงานตามห้อง
 alter table assignments add column if not exists room text;
@@ -67,7 +80,7 @@ create policy "scores insert" on scores for insert with check (true);
 create policy "scores update" on scores for update using (true) with check (true);
 create policy "scores delete" on scores for delete using (true);
 
-insert into assignments(room,title,max_score) values ('4/2','งานที่ 1',10) on conflict do nothing;
+insert into assignments(room,title,max_score,sort_order,period) values ('4/2','งานที่ 1',10,1,'pre') on conflict do nothing;
 
 -- ตัวอย่างเพิ่มนักเรียน
 -- insert into students(student_code,prefix,full_name,room,number) values

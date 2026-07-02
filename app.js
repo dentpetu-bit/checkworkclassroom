@@ -23,7 +23,7 @@ function bindEvents(){
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportExcelBtn',el=>el.onclick=exportExcel); safe('exportImageBtn',el=>el.onclick=exportImage);
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
-  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel);
+  safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel); safe('exportRealImageBtn',el=>el.onclick=exportRealImage);
 }
 
 function focusBarcodeInput(){
@@ -105,7 +105,7 @@ function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
   el.innerHTML=assignments.map((a,idx)=>`
     <div class="list-item work-item">
-      <div class="work-main"><b>${workNo(a,idx)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${escapeHtml(a.max_score)} คะแนน</span></div>
+      <div class="work-main"><b>${workNo(a,idx)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${a.period==='post'?'หลังกลางภาค':'ก่อนกลางภาค'} | ${escapeHtml(a.max_score)} คะแนน</span></div>
       <div class="table-actions">
         <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
         <button class="mini ghost" data-work-down="${a.id}" ${idx===assignments.length-1?'disabled':''}>↓</button>
@@ -140,8 +140,10 @@ async function editAssignment(id){
   const a=assignments.find(x=>x.id===id); if(!a) return;
   const title=prompt('แก้ไขชื่อชิ้นงาน', a.title); if(title===null) return;
   const maxRaw=prompt('แก้ไขคะแนนเต็ม', a.max_score); if(maxRaw===null) return;
+  const periodRaw=prompt('ช่วงชิ้นงาน: พิมพ์ pre = ก่อนกลางภาค หรือ post = หลังกลางภาค', a.period || 'pre'); if(periodRaw===null) return;
+  const period=String(periodRaw).trim()==='post'?'post':'pre';
   const max=Number(maxRaw); if(!title.trim() || Number.isNaN(max)) return toast('กรอกข้อมูลชิ้นงานไม่ถูกต้อง');
-  const {error}=await supabaseClient.from('assignments').update({title:title.trim(),max_score:max}).eq('id',id);
+  const {error}=await supabaseClient.from('assignments').update({title:title.trim(),max_score:max,period}).eq('id',id);
   if(error) return toast(error.message);
   await loadAssignments($('workRoomSelect')?.value); toast('แก้ไขชิ้นงานแล้ว');
 }
@@ -465,7 +467,9 @@ async function loadRealScoreConfig(){
   realGroups.forEach(g=>{
     const sel=$(g.selectId); if(!sel) return;
     const old=selectedValues(g.selectId);
-    sel.innerHTML=ass.map((a,idx)=>`<option value="${a.id}" ${old.includes(a.id)?'selected':''}>${workNo(a,idx)}. ${escapeHtml(a.title)} (${escapeHtml(a.max_score)} คะแนน)</option>`).join('');
+    const wanted=(g.key==='pre'||g.key==='mid')?'pre':'post';
+    const filtered=ass.filter(a=>(a.period||'pre')===wanted);
+    sel.innerHTML=filtered.map((a,idx)=>`<option value="${a.id}" ${old.includes(a.id)?'selected':''}>${workNo(a,idx)}. ${escapeHtml(a.title)} (${escapeHtml(a.max_score)} คะแนน)</option>`).join('');
   });
   safe('realScoreTable',tbl=>{tbl.querySelector('thead').innerHTML=''; tbl.querySelector('tbody').innerHTML='';});
 }
@@ -502,6 +506,15 @@ function exportRealExcel(){
   const table=$('realScoreTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดคะแนนจริงก่อน');
   const wb=XLSX.utils.table_to_book(table,{sheet:'RealScore'});
   XLSX.writeFile(wb,`คะแนนจริง_${$('realRoomSelect')?.value||''}.xlsx`);
+}
+async function exportRealImage(){
+  if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ');
+  const table=$('realScoreTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดคะแนนจริงก่อน');
+  const holder=document.createElement('div'); holder.className='report-export-holder';
+  const title=document.createElement('div'); title.className='report-export-title'; title.textContent=`คะแนนจริงและเกรด ห้อง ${$('realRoomSelect')?.value||''}`;
+  const clone=table.cloneNode(true); clone.classList.add('report-export-table');
+  holder.appendChild(title); holder.appendChild(clone); document.body.appendChild(holder);
+  try{ const width=holder.scrollWidth, height=holder.scrollHeight; const canvas=await html2canvas(holder,{backgroundColor:'#ffffff',scale:2,width,height,windowWidth:width,windowHeight:height}); const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`คะแนนจริง_${$('realRoomSelect')?.value||''}.png`; a.click(); toast('โหลดภาพคะแนนจริงแล้ว'); }catch(e){ toast('ส่งออกภาพไม่สำเร็จ: '+e.message); }finally{ holder.remove(); }
 }
 
 
