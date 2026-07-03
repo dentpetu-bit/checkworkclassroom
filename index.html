@@ -133,7 +133,7 @@
 
     <section id="reportPage" class="page">
       <div class="card">
-        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แสดงคะแนนเรียงตาม งาน 1, งาน 2, งาน 3... ช่องว่างจะแสดง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button><button id="exportExcelBtn" class="ghost">Excel</button><button id="exportImageBtn" class="ghost">ภาพ PNG</button></div></div>
+        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แยกตารางก่อนกลางภาค / หลังกลางภาค ช่อง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button></div></div>
         <div class="import-score-panel">
           <div class="section-head">
             <div><h2>นำเข้าคะแนนจากภายนอก</h2><p class="hint">โหลด Template ของห้องนี้ → กรอกคะแนนจากไฟล์เดิม → อัปโหลดกลับเข้าระบบ</p></div>
@@ -154,7 +154,14 @@
           <p id="scoreImportSummary" class="hint">ยังไม่มีข้อมูลคะแนนนำเข้า</p>
           <div class="table-wrap compact"><table id="scoreImportPreview"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div id="reportCapture" class="table-wrap"><table id="reportTable"><thead></thead><tbody></tbody></table></div>
+        <div class="report-period-block" id="reportPreBlock">
+          <div class="section-head"><div><h2>คะแนนก่อนกลางภาค</h2><p id="reportPreSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPreExcelBtn" class="ghost">Excel ก่อนกลางภาค</button><button id="exportPreImageBtn" class="ghost">ภาพ PNG ก่อนกลางภาค</button></div></div>
+          <div id="reportPreCapture" class="table-wrap"><table id="reportPreTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+        <div class="report-period-block" id="reportPostBlock">
+          <div class="section-head"><div><h2>คะแนนหลังกลางภาค</h2><p id="reportPostSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPostExcelBtn" class="ghost">Excel หลังกลางภาค</button><button id="exportPostImageBtn" class="ghost">ภาพ PNG หลังกลางภาค</button></div></div>
+          <div id="reportPostCapture" class="table-wrap"><table id="reportPostTable"><thead></thead><tbody></tbody></table></div>
+        </div>
       </div>
     </section>
 
@@ -182,7 +189,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v16"></script>
-  <script src="./app.js?v=v16"></script>
+  <script src="./config.js?v=v17"></script>
+  <script src="./app.js?v=v17"></script>
 </body>
 </html>

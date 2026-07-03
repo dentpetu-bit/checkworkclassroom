@@ -21,3 +21,7 @@
 
 /* v15 real score page */
 .real-score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}.real-box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:16px}.real-box h3{margin:0 0 12px}.real-box select[multiple]{min-height:190px}.real-sub{font-size:12px;color:#6b7280;margin-top:3px}@media(max-width:1100px){.real-score-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.real-score-grid{grid-template-columns:1fr}}
+
+/* v17 split report */
+.report-period-block{margin-top:20px;padding:18px;border-radius:24px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1)}
+.report-period-block .section-head{margin-bottom:6px}

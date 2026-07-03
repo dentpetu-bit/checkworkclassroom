@@ -20,7 +20,7 @@ window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network
 function bindEvents(){
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
-  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportExcelBtn',el=>el.onclick=exportExcel); safe('exportImageBtn',el=>el.onclick=exportImage);
+  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
   safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel); safe('exportRealImageBtn',el=>el.onclick=exportRealImage);
@@ -208,12 +208,27 @@ async function loadReport(){
   const room=$('reportRoomSelect')?.value;
   const {data:roomAssignments,error:e0}=await supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true});
   if(e0) return toast(e0.message);
-  const reportAssignments=roomAssignments||[];
   const {data:stu,error:e1}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
   if(e1) return toast(e1.message);
   const ids=(stu||[]).map(s=>s.id); let scoreRows=[];
   if(ids.length){const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]}
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
+  renderReportPeriod('pre', roomAssignments||[], stu||[], scoreMap);
+  renderReportPeriod('post', roomAssignments||[], stu||[], scoreMap);
+  bindReportScoreInputs();
+  toast('โหลดรายงานแยกก่อน/หลังกลางภาคแล้ว');
+}
+function reportPeriodInfo(period){
+  return period==='post'
+    ? {label:'หลังกลางภาค', tableId:'reportPostTable', summaryId:'reportPostSummary', captureId:'reportPostCapture'}
+    : {label:'ก่อนกลางภาค', tableId:'reportPreTable', summaryId:'reportPreSummary', captureId:'reportPreCapture'};
+}
+function renderReportPeriod(period, allAssignments, stu, scoreMap){
+  const info=reportPeriodInfo(period);
+  const reportAssignments=(allAssignments||[]).filter(a=>(a.period||'pre')===period);
+  const totalMax=reportAssignments.reduce((sum,a)=>sum+Number(a.max_score||0),0);
+  safe(info.summaryId,el=>el.textContent=`จำนวนงาน ${reportAssignments.length} งาน | คะแนนเต็มรวม ${round2(totalMax)} คะแนน | นักเรียน ${stu.length} คน`);
+  const table=$(info.tableId); if(!table) return;
   const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${workNo(a,idx)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
   const tbody=(stu||[]).map(s=>{
     let total=0;
@@ -222,12 +237,10 @@ async function loadReport(){
       const cellClass = scoreCellClass(v, a.max_score);
       return `<td class="score-cell ${cellClass}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-max-score="${escapeHtml(a.max_score)}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
     }).join('');
-    return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(total)}</b></td></tr>`
+    return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(round2(total))}</b></td></tr>`
   }).join('');
-  $('reportTable').querySelector('thead').innerHTML=thead;
-  $('reportTable').querySelector('tbody').innerHTML=tbody;
-  bindReportScoreInputs();
-  toast('โหลดรายงานแล้ว');
+  table.querySelector('thead').innerHTML=thead;
+  table.querySelector('tbody').innerHTML=tbody || `<tr><td colspan="4">ยังไม่มีข้อมูล${info.label}</td></tr>`;
 }
 function bindReportScoreInputs(){
   document.querySelectorAll('.score-input').forEach(inp=>{
@@ -254,12 +267,15 @@ async function updateReportScore(inp){
 function recalcReportRow(tr){
   if(!tr) return; let total=0;
   tr.querySelectorAll('.score-input').forEach(i=>{const n=Number(i.value); if(!Number.isNaN(n)) total+=n;});
-  const el=tr.querySelector('.row-total'); if(el) el.textContent=String(total);
+  const el=tr.querySelector('.row-total'); if(el) el.textContent=String(round2(total));
 }
-function getReportAOA(){ const table=$('reportTable'); if(!table) return []; const aoa=[]; const head=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim()); if(head.length) aoa.push(head); table.querySelectorAll('tbody tr').forEach(tr=>{ const row=[...tr.children].map(td=>{ const input=td.querySelector('input'); if(input) return Number(input.value || 0); const txt=td.textContent.trim(); const n=Number(txt); return txt!=='' && !Number.isNaN(n) ? n : txt; }); if(row.length) aoa.push(row); }); return aoa; }
-function exportExcel(){ if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const aoa=getReportAOA(); if(!aoa.length) return toast('กรุณาโหลดรายงานก่อน'); const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Report'); XLSX.writeFile(wb,`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.xlsx`); }
-function cloneReportTableForExport(){ const original=$('reportTable'); if(!original) return null; const clone=original.cloneNode(true); clone.querySelectorAll('input.score-input').forEach(inp=>{ const span=document.createElement('span'); span.className='export-score-value'; span.textContent=inp.value || '0'; inp.replaceWith(span); }); clone.classList.add('report-export-table'); return clone; }
-async function exportImage(){ if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ'); const table=$('reportTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดรายงานก่อน'); const holder=document.createElement('div'); holder.className='report-export-holder'; const title=document.createElement('div'); title.className='report-export-title'; title.textContent=`รายงานคะแนน ห้อง ${$('reportRoomSelect')?.value || ''}`; const clone=cloneReportTableForExport(); holder.appendChild(title); holder.appendChild(clone); document.body.appendChild(holder); try{ const width=holder.scrollWidth; const height=holder.scrollHeight; const canvas=await html2canvas(holder,{backgroundColor:'#ffffff',scale:2,width,height,windowWidth:width,windowHeight:height,scrollX:0,scrollY:0}); const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`รายงานคะแนน_${$('reportRoomSelect')?.value||''}.png`; a.click(); toast('ส่งออกภาพรายงานแล้ว'); }catch(e){ toast('ส่งออกภาพไม่สำเร็จ: '+e.message); }finally{ holder.remove(); } }
+function getReportAOAByTable(tableId){ const table=$(tableId); if(!table) return []; const aoa=[]; const head=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim()); if(head.length) aoa.push(head); table.querySelectorAll('tbody tr').forEach(tr=>{ const row=[...tr.children].map(td=>{ const input=td.querySelector('input'); if(input) return Number(input.value || 0); const txt=td.textContent.trim(); const n=Number(txt); return txt!=='' && !Number.isNaN(n) ? n : txt; }); if(row.length) aoa.push(row); }); return aoa; }
+function exportReportExcel(period){ if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ'); const info=reportPeriodInfo(period); const aoa=getReportAOAByTable(info.tableId); if(!aoa.length) return toast('กรุณาโหลดรายงานก่อน'); const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,info.label); XLSX.writeFile(wb,`รายงานคะแนน_${info.label}_${$('reportRoomSelect')?.value||''}.xlsx`); }
+function cloneReportTableForExport(tableId){ const original=$(tableId); if(!original) return null; const clone=original.cloneNode(true); clone.querySelectorAll('input.score-input').forEach(inp=>{ const span=document.createElement('span'); span.className='export-score-value'; span.textContent=inp.value || '0'; inp.replaceWith(span); }); clone.classList.add('report-export-table'); return clone; }
+async function exportReportImage(period){ if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ'); const info=reportPeriodInfo(period); const table=$(info.tableId); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดรายงานก่อน'); const holder=document.createElement('div'); holder.className='report-export-holder'; const title=document.createElement('div'); title.className='report-export-title'; title.textContent=`รายงานคะแนน${info.label} ห้อง ${$('reportRoomSelect')?.value || ''}`; const clone=cloneReportTableForExport(info.tableId); holder.appendChild(title); holder.appendChild(clone); document.body.appendChild(holder); try{ const width=holder.scrollWidth; const height=holder.scrollHeight; const canvas=await html2canvas(holder,{backgroundColor:'#ffffff',scale:2,width,height,windowWidth:width,windowHeight:height,scrollX:0,scrollY:0}); const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`รายงานคะแนน_${info.label}_${$('reportRoomSelect')?.value||''}.png`; a.click(); toast('ส่งออกภาพรายงานแล้ว'); }catch(e){ toast('ส่งออกภาพไม่สำเร็จ: '+e.message); }finally{ holder.remove(); } }
+// aliases for old code compatibility
+function exportExcel(){ exportReportExcel('pre'); }
+async function exportImage(){ await exportReportImage('pre'); }
 async function loadManagedStudents(){ if(!supabaseClient) return; const room=$('studentRoomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; managedStudents=data||[]; renderStudentTable(); }
 function renderStudentTable(){ if(!$('studentTable')) return; const q=($('studentSearchInput')?.value||'').trim().toLowerCase(); const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q))); safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`); $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>'; $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.number??'')}</td><td>${escapeHtml(s.student_code)}</td><td>${escapeHtml(s.prefix??'')}</td><td class="text-left"><b>${escapeHtml(s.full_name)}</b></td><td>${escapeHtml(s.room)}</td><td class="table-actions"><button class="mini" data-edit="${s.id}">แก้ไข</button><button class="mini danger" data-delete="${s.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนในห้องนี้</td></tr>'; document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete)); }
 function clearStudentForm(){ ['studentId','studentCode','studentPrefix','studentFullName','studentNumber'].forEach(id=>safe(id,el=>el.value='')); safe('studentFormRoom',el=>el.value=$('studentRoomSelect')?.value || (cfg.ROOMS||[])[0] || ''); safe('studentFormTitle',el=>el.textContent='เพิ่มนักเรียน'); safe('saveStudentBtn',el=>el.textContent='บันทึกนักเรียน'); }
