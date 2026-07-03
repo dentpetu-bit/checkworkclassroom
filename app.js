@@ -19,7 +19,7 @@ window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network
 
 function bindEvents(){
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); });
-  safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
+  safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
@@ -97,22 +97,37 @@ async function loadAssignments(roomArg){
   const {data,error}=await query;
   if(error) throw error;
   assignments=data||[];
-  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${workNo(a,idx)}. ${a.title} (${a.max_score} คะแนน)`);
+  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${periodWorkNo(a,idx,assignments)}. ${a.title} (${periodLabel(a.period)} | ${a.max_score} คะแนน)`);
   renderAssignmentList();
 }
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
+function periodLabel(period){ return (period||'pre')==='post' ? 'หลังกลางภาค' : 'ก่อนกลางภาค'; }
+function periodWorkNo(a, idx, list){
+  const n=Number(a?.sort_order);
+  if(Number.isFinite(n) && n>0) return n;
+  return idx+1;
+}
 function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
-  el.innerHTML=assignments.map((a,idx)=>`
-    <div class="list-item work-item">
-      <div class="work-main"><b>${workNo(a,idx)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${a.period==='post'?'หลังกลางภาค':'ก่อนกลางภาค'} | ${escapeHtml(a.max_score)} คะแนน</span></div>
-      <div class="table-actions">
-        <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
-        <button class="mini ghost" data-work-down="${a.id}" ${idx===assignments.length-1?'disabled':''}>↓</button>
-        <button class="mini" data-work-edit="${a.id}">แก้ไข</button>
-        <button class="mini danger" data-work-delete="${a.id}">ลบ</button>
-      </div>
-    </div>`).join('') || '<p class="hint">ยังไม่มีชิ้นงาน</p>';
+  const groups=[
+    {period:'pre', title:'ชิ้นงานก่อนกลางภาค'},
+    {period:'post', title:'ชิ้นงานหลังกลางภาค'}
+  ];
+  el.innerHTML=groups.map(g=>{
+    const list=(assignments||[]).filter(a=>(a.period||'pre')===g.period).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+    const total=list.reduce((sum,a)=>sum+(Number(a.max_score)||0),0);
+    const rows=list.map((a,idx)=>`
+      <div class="list-item work-item period-work-item">
+        <div class="work-main"><b>${periodWorkNo(a,idx,list)}. ${escapeHtml(a.title)}</b><span>ห้อง ${escapeHtml(a.room||'-')} | ${periodLabel(a.period)} | ${escapeHtml(a.max_score)} คะแนน</span></div>
+        <div class="table-actions">
+          <button class="mini ghost" data-work-up="${a.id}" ${idx===0?'disabled':''}>↑</button>
+          <button class="mini ghost" data-work-down="${a.id}" ${idx===list.length-1?'disabled':''}>↓</button>
+          <button class="mini" data-work-edit="${a.id}">แก้ไข</button>
+          <button class="mini danger" data-work-delete="${a.id}">ลบ</button>
+        </div>
+      </div>`).join('') || '<p class="hint">ยังไม่มีชิ้นงานในช่วงนี้</p>';
+    return `<div class="period-work-group"><div class="section-head"><div><h3>${g.title}</h3><p class="hint">จำนวน ${list.length} งาน | คะแนนเต็มรวม ${total} คะแนน</p></div></div><div class="list period-list">${rows}</div></div>`;
+  }).join('');
   document.querySelectorAll('[data-work-edit]').forEach(b=>b.onclick=()=>editAssignment(b.dataset.workEdit));
   document.querySelectorAll('[data-work-delete]').forEach(b=>b.onclick=()=>deleteAssignment(b.dataset.workDelete));
   document.querySelectorAll('[data-work-up]').forEach(b=>b.onclick=()=>moveAssignment(b.dataset.workUp,-1));
@@ -121,19 +136,25 @@ function renderAssignmentList(){
 async function addAssignment(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=$('workRoomSelect')?.value || $('roomSelect')?.value || (cfg.ROOMS||[])[0];
+  const period=$('workPeriodSelect')?.value || 'pre';
   const title=$('newAssignmentName')?.value.trim();
   const max=Number($('newMaxScore')?.value||10);
   if(!room) return toast('กรุณาเลือกห้องของชิ้นงาน');
   if(!title) return toast('กรุณากรอกชื่องาน');
-  const {data:orders,error:orderError}=await supabaseClient.from('assignments').select('sort_order').eq('room',room).order('sort_order',{ascending:false}).limit(1);
+  const {data:orders,error:orderError}=await supabaseClient
+    .from('assignments')
+    .select('sort_order')
+    .eq('room',room)
+    .eq('period',period)
+    .order('sort_order',{ascending:false})
+    .limit(1);
   if(orderError) return toast(orderError.message);
-  const nextOrder=((orders && orders[0] && Number(orders[0].sort_order)) || 0) + 1;
-  const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max,sort_order:nextOrder});
+  const nextOrder=((orders&&orders[0]&&Number(orders[0].sort_order))||0)+1;
+  const {error}=await supabaseClient.from('assignments').insert({room,title,max_score:max,period,sort_order:nextOrder});
   if(error) return toast(error.message);
   $('newAssignmentName').value='';
   await loadAssignments(room);
-  if($('roomSelect')?.value===room) await loadAssignments(room);
-  toast('เพิ่มชิ้นงานของห้อง '+room+' แล้ว');
+  toast(`เพิ่มชิ้นงาน${periodLabel(period)} ลำดับที่ ${nextOrder} แล้ว`);
 }
 async function editAssignment(id){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
@@ -157,9 +178,11 @@ async function deleteAssignment(id){
 }
 async function moveAssignment(id,dir){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
-  const idx=assignments.findIndex(x=>x.id===id); const other=assignments[idx+dir]; const current=assignments[idx];
-  if(!current || !other) return;
-  const aOrder=workNo(current,idx), bOrder=workNo(other,idx+dir);
+  const current=assignments.find(x=>x.id===id); if(!current) return;
+  const list=(assignments||[]).filter(a=>(a.period||'pre')===(current.period||'pre')).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+  const idx=list.findIndex(x=>x.id===id); const other=list[idx+dir];
+  if(!other) return;
+  const aOrder=Number(current.sort_order)||idx+1, bOrder=Number(other.sort_order)||idx+dir+1;
   const {error:e1}=await supabaseClient.from('assignments').update({sort_order:bOrder}).eq('id',current.id); if(e1) return toast(e1.message);
   const {error:e2}=await supabaseClient.from('assignments').update({sort_order:aOrder}).eq('id',other.id); if(e2) return toast(e2.message);
   await loadAssignments($('workRoomSelect')?.value); toast('เลื่อนลำดับชิ้นงานแล้ว');
@@ -229,7 +252,7 @@ function renderReportPeriod(period, allAssignments, stu, scoreMap){
   const totalMax=reportAssignments.reduce((sum,a)=>sum+Number(a.max_score||0),0);
   safe(info.summaryId,el=>el.textContent=`จำนวนงาน ${reportAssignments.length} งาน | คะแนนเต็มรวม ${round2(totalMax)} คะแนน | นักเรียน ${stu.length} คน`);
   const table=$(info.tableId); if(!table) return;
-  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${workNo(a,idx)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
+  const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+reportAssignments.map((a,idx)=>`<th>${periodWorkNo(a,idx,reportAssignments)}. ${escapeHtml(a.title)}</th>`).join('')+'<th>รวม</th></tr>';
   const tbody=(stu||[]).map(s=>{
     let total=0;
     const tds=reportAssignments.map(a=>{

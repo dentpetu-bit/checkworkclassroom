@@ -25,3 +25,7 @@
 /* v17 split report */
 .report-period-block{margin-top:20px;padding:18px;border-radius:24px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1)}
 .report-period-block .section-head{margin-bottom:6px}
+
+/* v18 split assignment manager */
+.period-work-group{margin-top:20px;padding:16px;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.period-work-group h3{margin:0 0 4px;font-size:22px}.period-list{margin-top:10px}.period-work-item{background:rgba(255,255,255,.07)}
