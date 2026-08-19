@@ -4,6 +4,7 @@ const cfg = window.APP_CONFIG || {};
 let supabaseClient = null;
 let assignments = [], students = [], managedStudents = [];
 let scanState = 'student', selectedStudent = null, html5QrCode = null, lastText = '', lastAt = 0;
+let scanPeriod = 'pre';
 let keyboardScanBuffer = '', keyboardScanTimer = null, keyboardLastAt = 0;
 const $ = id => document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el && typeof fn === 'function') fn(el); return el; };
@@ -20,6 +21,7 @@ window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network
 function bindEvents(){
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
+  document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
@@ -97,11 +99,39 @@ async function loadAssignments(roomArg){
   const {data,error}=await query;
   if(error) throw error;
   assignments=data||[];
-  fillSelect($('assignmentSelect'),assignments,a=>a.id,(a,idx)=>`${periodWorkNo(a,idx,assignments)}. ${a.title} (${periodLabel(a.period)} | ${a.max_score} คะแนน)`);
+  renderScanAssignmentSelect();
   renderAssignmentList();
 }
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
 function periodLabel(period){ return (period||'pre')==='post' ? 'หลังกลางภาค' : 'ก่อนกลางภาค'; }
+function setScanPeriod(period){
+  scanPeriod = period==='post' ? 'post' : 'pre';
+  document.querySelectorAll('[data-scan-period]').forEach(btn=>{
+    const active=btn.dataset.scanPeriod===scanPeriod;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-pressed',active?'true':'false');
+  });
+  // ถ้าเปลี่ยนช่วงระหว่างที่เลือกนักเรียนอยู่ ให้เริ่มรอบสแกนใหม่เพื่อกันลงผิดงาน
+  if(selectedStudent){
+    selectedStudent=null;
+    scanState='student';
+    updateMode();
+    safe('currentStudent',el=>el.innerHTML='เปลี่ยนช่วงคะแนนแล้ว กรุณาสแกนนักเรียนใหม่');
+  }
+  renderScanAssignmentSelect();
+}
+function renderScanAssignmentSelect(){
+  const select=$('assignmentSelect'); if(!select) return;
+  const list=(assignments||[])
+    .filter(a=>(a.period||'pre')===scanPeriod)
+    .sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+  if(!list.length){
+    select.innerHTML=`<option value="">— ยังไม่มีชิ้นงาน${periodLabel(scanPeriod)} —</option>`;
+  }else{
+    fillSelect(select,list,a=>a.id,(a,idx)=>`${periodWorkNo(a,idx,list)}. ${a.title} (${a.max_score} คะแนน)`);
+  }
+  safe('scanPeriodHint',el=>el.textContent=`กำลังเลือก: ${periodLabel(scanPeriod)} • ${list.length} ชิ้นงาน`);
+}
 function periodWorkNo(a, idx, list){
   const n=Number(a?.sort_order);
   if(Number.isFinite(n) && n>0) return n;

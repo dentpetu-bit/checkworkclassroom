@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v16-period-real-image" />
+  <meta name="app-version" content="v19-split-scan-period" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v15" />
+  <link rel="stylesheet" href="styles.css?v=v19" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -21,7 +21,7 @@
 
   <main class="app">
     <section class="hero">
-      <div><p class="eyebrow">Modern classroom scoring system</p><h1>ระบบสแกน QR บันทึกคะแนน</h1><p>เลือกห้อง + งาน → สแกน QR นักเรียน → สแกน QR คะแนน → บันทึกลง Supabase อัตโนมัติ</p></div>
+      <div><p class="eyebrow">Modern classroom scoring system</p><h1>ระบบสแกน QR บันทึกคะแนน</h1><p>เลือกช่วง + ห้อง + งาน → สแกน QR นักเรียน → สแกน QR คะแนน → บันทึกลง Supabase อัตโนมัติ</p></div>
       <div class="status-pill" id="connectionStatus">กำลังเชื่อมต่อ...</div>
     </section>
 
@@ -29,9 +29,17 @@
       <div class="grid two">
         <div class="card">
           <h2>ตั้งค่าการกรอกคะแนน</h2>
+          <div class="scan-period-panel">
+            <div class="scan-period-title">1. เลือกช่วงคะแนน</div>
+            <div class="scan-period-tabs" role="group" aria-label="เลือกช่วงคะแนน">
+              <button type="button" class="scan-period-btn pre active" data-scan-period="pre" aria-pressed="true">ก่อนกลางภาค</button>
+              <button type="button" class="scan-period-btn post" data-scan-period="post" aria-pressed="false">หลังกลางภาค</button>
+            </div>
+            <p id="scanPeriodHint" class="scan-period-hint">กำลังเลือก: ก่อนกลางภาค</p>
+          </div>
           <div class="form-grid">
-            <label>ห้องเรียน<select id="roomSelect"></select></label>
-            <label>ชิ้นงาน<select id="assignmentSelect"></select></label>
+            <label>2. ห้องเรียน<select id="roomSelect"></select></label>
+            <label>3. ชิ้นงาน<select id="assignmentSelect"></select></label>
           </div>
           <div class="scan-mode"><span id="scanModeBadge">พร้อมสแกนนักเรียน</span><button id="startScanBtn">เปิดกล้องสแกน</button><button id="stopScanBtn" class="ghost">ปิดกล้อง</button></div>
           <div class="barcode-panel">
@@ -189,7 +197,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v18"></script>
-  <script src="./app.js?v=v18"></script>
+  <script src="./config.js?v=v19"></script>
+  <script src="./app.js?v=v19"></script>
 </body>
 </html>
