@@ -256,6 +256,38 @@ async function saveScore(studentCode, score){
   safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`); toast(existing && oldScore!==0 ? 'บันทึกทับคะแนนเดิมแล้ว' : 'บันทึกคะแนนอัตโนมัติแล้ว'); return {saved:true};
 }
 async function manualSave(){ const code=$('manualCode')?.value.trim(); const score=Number($('manualScore')?.value); if(!code||Number.isNaN(score)) return toast('กรอกข้อมูล Manual ให้ครบ'); await saveScore(code,score); }
+// ===== v20: โหลดคะแนนครบทุกแถวแบบ pagination =====
+// Supabase มีเพดานจำนวนแถวต่อ request จึงต้องแบ่งโหลดเป็นหน้า ๆ
+// และกรองทั้งนักเรียน + ชิ้นงานของห้อง เพื่อลดข้อมูลที่ไม่เกี่ยวข้อง
+async function fetchAllScores(studentIds, assignmentIds){
+  if(!supabaseClient || !studentIds?.length || !assignmentIds?.length) return [];
+
+  const PAGE_SIZE = 500;
+  const allRows = [];
+  let from = 0;
+
+  while(true){
+    const {data,error}=await supabaseClient
+      .from('scores')
+      .select('id,student_id,assignment_id,score,updated_at')
+      .in('student_id',studentIds)
+      .in('assignment_id',assignmentIds)
+      .order('updated_at',{ascending:true})
+      .order('id',{ascending:true})
+      .range(from, from + PAGE_SIZE - 1);
+
+    if(error) throw error;
+    const page = data || [];
+    if(!page.length) break;
+
+    allRows.push(...page);
+    // ขยับตามจำนวนที่ server ส่งกลับจริง จึงรองรับแม้ตั้ง Max Rows ต่ำกว่า PAGE_SIZE
+    from += page.length;
+  }
+
+  return allRows;
+}
+
 async function loadReport(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=$('reportRoomSelect')?.value;
@@ -263,8 +295,11 @@ async function loadReport(){
   if(e0) return toast(e0.message);
   const {data:stu,error:e1}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
   if(e1) return toast(e1.message);
-  const ids=(stu||[]).map(s=>s.id); let scoreRows=[];
-  if(ids.length){const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]}
+  const ids=(stu||[]).map(s=>s.id);
+  const assignmentIds=(roomAssignments||[]).map(a=>a.id);
+  let scoreRows=[];
+  try{ scoreRows=await fetchAllScores(ids, assignmentIds); }
+  catch(error){ return toast(error.message); }
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
   renderReportPeriod('pre', roomAssignments||[], stu||[], scoreMap);
   renderReportPeriod('post', roomAssignments||[], stu||[], scoreMap);
@@ -551,8 +586,11 @@ async function loadRealScore(){
   ]);
   if(e1) return toast(e1.message); if(e2) return toast(e2.message);
   const students2=stu||[], assignments2=ass||[], assignmentMap={}; assignments2.forEach(a=>assignmentMap[a.id]=a);
-  const ids=students2.map(s=>s.id); let scoreRows=[];
-  if(ids.length){ const {data,error}=await supabaseClient.from('scores').select('student_id,assignment_id,score').in('student_id',ids); if(error) return toast(error.message); scoreRows=data||[]; }
+  const ids=students2.map(s=>s.id);
+  const assignmentIds=assignments2.map(a=>a.id);
+  let scoreRows=[];
+  try{ scoreRows=await fetchAllScores(ids, assignmentIds); }
+  catch(error){ return toast(error.message); }
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=Number(r.score)||0);
   const thead='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th>'+realGroups.map(g=>`<th>${g.label}</th>`).join('')+'<th>รวม</th><th>เกรด</th></tr>';
   const tbody=students2.map(s=>{
