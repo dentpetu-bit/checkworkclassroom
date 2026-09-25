@@ -610,9 +610,42 @@ async function loadRealScore(){
 }
 function exportRealExcel(){
   if(!window.XLSX) return toast('โหลด Excel library ไม่สำเร็จ');
-  const table=$('realScoreTable'); if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดคะแนนจริงก่อน');
-  const wb=XLSX.utils.table_to_book(table,{sheet:'RealScore'});
+  const table=$('realScoreTable');
+  if(!table || !table.querySelector('tbody tr')) return toast('กรุณาโหลดคะแนนจริงก่อน');
+
+  // Export เฉพาะค่าคะแนนจริง ไม่เอาข้อความคะแนนดิบ / คะแนนเต็ม (.real-sub) ไปใน Excel
+  const headers=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+  const rows=[...table.querySelectorAll('tbody tr')].map(tr=>{
+    return [...tr.querySelectorAll('td')].map((td,colIndex)=>{
+      // คอลัมน์คะแนนจริง: เอาเฉพาะตัวเลขตัวใหญ่ใน <b>
+      if(colIndex>=3 && colIndex<headers.length-2){
+        const scoreText=td.querySelector('b')?.textContent?.trim() ?? '';
+        const n=Number(scoreText);
+        return scoreText!=='' && Number.isFinite(n) ? n : scoreText;
+      }
+
+      // คอลัมน์รวม: เก็บเป็นตัวเลขจริง
+      if(colIndex===headers.length-2){
+        const totalText=td.querySelector('b')?.textContent?.trim() ?? td.textContent.trim();
+        const n=Number(totalText);
+        return totalText!=='' && Number.isFinite(n) ? n : totalText;
+      }
+
+      // เลขที่ / รหัส / ชื่อ / เกรด
+      const text=td.textContent.trim();
+      if(colIndex===0){
+        const n=Number(text);
+        return text!=='' && Number.isFinite(n) ? n : text;
+      }
+      return text;
+    });
+  });
+
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'RealScore');
   XLSX.writeFile(wb,`คะแนนจริง_${$('realRoomSelect')?.value||''}.xlsx`);
+  toast('ดาวน์โหลด Excel คะแนนจริงแล้ว');
 }
 async function exportRealImage(){
   if(!window.html2canvas) return toast('โหลดระบบส่งออกภาพไม่สำเร็จ');
