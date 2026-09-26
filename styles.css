@@ -41,3 +41,27 @@
 .scan-period-btn.post.active{opacity:1;background:linear-gradient(135deg,rgba(139,92,246,.95),rgba(124,58,237,.95));border-color:#c4b5fd;box-shadow:0 10px 28px rgba(139,92,246,.22)}
 .scan-period-hint{margin:10px 2px 0;color:#9fb3ce;font-size:13px;font-weight:700}
 @media(max-width:560px){.scan-period-tabs{grid-template-columns:1fr}.scan-period-btn{min-height:52px}}
+
+
+/* v26: หน้าแสกนคะแนนรองรับ 4 ช่วง โดยคงสไตล์ Original */
+.scan-period-tabs.scan-period-tabs-four{
+  grid-template-columns:repeat(4,1fr);
+}
+.scan-period-btn.mid.active{
+  opacity:1;
+  background:linear-gradient(135deg,rgba(14,165,233,.95),rgba(37,99,235,.95));
+  border-color:#7dd3fc;
+  box-shadow:0 10px 28px rgba(14,165,233,.22);
+}
+.scan-period-btn.final.active{
+  opacity:1;
+  background:linear-gradient(135deg,rgba(139,92,246,.95),rgba(124,58,237,.95));
+  border-color:#c4b5fd;
+  box-shadow:0 10px 28px rgba(139,92,246,.22);
+}
+@media(max-width:900px){
+  .scan-period-tabs.scan-period-tabs-four{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:560px){
+  .scan-period-tabs.scan-period-tabs-four{grid-template-columns:1fr}
+}

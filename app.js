@@ -107,7 +107,7 @@ function periodLabel(period){
   return {pre:'ก่อนกลางภาค',mid:'กลางภาค',post:'หลังกลางภาค',final:'ปลายภาค'}[period||'pre'] || 'ก่อนกลางภาค';
 }
 function setScanPeriod(period){
-  scanPeriod = period==='post' ? 'post' : 'pre';
+  scanPeriod = ['pre','mid','post','final'].includes(period) ? period : 'pre';
   document.querySelectorAll('[data-scan-period]').forEach(btn=>{
     const active=btn.dataset.scanPeriod===scanPeriod;
     btn.classList.toggle('active',active);
@@ -127,12 +127,19 @@ function renderScanAssignmentSelect(){
   const list=(assignments||[])
     .filter(a=>(a.period||'pre')===scanPeriod)
     .sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+
   if(!list.length){
     select.innerHTML=`<option value="">— ยังไม่มีชิ้นงาน${periodLabel(scanPeriod)} —</option>`;
   }else{
     fillSelect(select,list,a=>a.id,(a,idx)=>`${periodWorkNo(a,idx,list)}. ${a.title} (${a.max_score} คะแนน)`);
+
+    // เลือกงานล่าสุดของห้องและช่วงคะแนนนี้ให้อัตโนมัติ
+    // งานใหม่จะมี sort_order สูงสุด จึงเป็นรายการสุดท้ายหลังเรียงลำดับ
+    const latestAssignment=list[list.length-1];
+    if(latestAssignment) select.value=latestAssignment.id;
   }
-  safe('scanPeriodHint',el=>el.textContent=`กำลังเลือก: ${periodLabel(scanPeriod)} • ${list.length} ชิ้นงาน`);
+
+  safe('scanPeriodHint',el=>el.textContent=`กำลังเลือก: ${periodLabel(scanPeriod)} • ${list.length} ชิ้นงาน${list.length ? ' • เลือกงานล่าสุดให้อัตโนมัติ' : ''}`);
 }
 function periodWorkNo(a, idx, list){
   const n=Number(a?.sort_order);

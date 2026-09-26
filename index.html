@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v24-four-periods-original" />
+  <meta name="app-version" content="v26-four-scan-periods" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v24original" />
+  <link rel="stylesheet" href="styles.css?v=v26" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -31,9 +31,11 @@
           <h2>ตั้งค่าการกรอกคะแนน</h2>
           <div class="scan-period-panel">
             <div class="scan-period-title">1. เลือกช่วงคะแนน</div>
-            <div class="scan-period-tabs" role="group" aria-label="เลือกช่วงคะแนน">
+            <div class="scan-period-tabs scan-period-tabs-four" role="group" aria-label="เลือกช่วงคะแนน">
               <button type="button" class="scan-period-btn pre active" data-scan-period="pre" aria-pressed="true">ก่อนกลางภาค</button>
+              <button type="button" class="scan-period-btn mid" data-scan-period="mid" aria-pressed="false">กลางภาค</button>
               <button type="button" class="scan-period-btn post" data-scan-period="post" aria-pressed="false">หลังกลางภาค</button>
+              <button type="button" class="scan-period-btn final" data-scan-period="final" aria-pressed="false">ปลายภาค</button>
             </div>
             <p id="scanPeriodHint" class="scan-period-hint">กำลังเลือก: ก่อนกลางภาค</p>
           </div>
@@ -197,7 +199,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v24original"></script>
-  <script src="./app.js?v=v24original"></script>
+  <script src="./config.js?v=v26"></script>
+  <script src="./app.js?v=v26"></script>
 </body>
 </html>
