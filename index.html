@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v21-real-score-excel" />
+  <meta name="app-version" content="v24-four-periods-original" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v21" />
+  <link rel="stylesheet" href="styles.css?v=v24original" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -73,12 +73,12 @@
 
     <section id="workPage" class="page">
       <div class="card max-760">
-        <h2>จัดการชิ้นงาน</h2><p class="hint">ระบบแยกชิ้นงานก่อนกลางภาค / หลังกลางภาค และรันเลขลำดับแยกกัน</p>
+        <h2>จัดการชิ้นงาน</h2><p class="hint">ระบบแยกชิ้นงานเป็น 4 ช่วง และรันเลขลำดับแยกกัน</p>
         <div class="form-grid">
           <label>ห้องของชิ้นงาน<select id="workRoomSelect"></select></label>
           <label>คะแนนเต็ม<input id="newMaxScore" type="number" value="10" /></label>
         </div>
-        <div class="form-grid mt-12"><label>ช่วงชิ้นงาน<select id="workPeriodSelect"><option value="pre">ก่อนกลางภาค</option><option value="post">หลังกลางภาค</option></select></label><label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label></div>
+        <div class="form-grid mt-12"><label>ช่วงชิ้นงาน<select id="workPeriodSelect"><option value="pre">ก่อนกลางภาค</option><option value="mid">กลางภาค</option><option value="post">หลังกลางภาค</option><option value="final">ปลายภาค</option></select></label><label>ชื่องาน<input id="newAssignmentName" placeholder="งานที่ 1 ใบกิจกรรม..." /></label></div>
         <button id="addAssignmentBtn">+ เพิ่มชิ้นงาน</button>
         <div id="assignmentList" class="list"></div>
       </div>
@@ -197,7 +197,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v21"></script>
-  <script src="./app.js?v=v21"></script>
+  <script src="./config.js?v=v24original"></script>
+  <script src="./app.js?v=v24original"></script>
 </body>
 </html>

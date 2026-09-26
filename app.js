@@ -103,7 +103,9 @@ async function loadAssignments(roomArg){
   renderAssignmentList();
 }
 async function loadStudents(){ if(!supabaseClient) return; const room=$('roomSelect')?.value || (cfg.ROOMS||[])[0]; if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
-function periodLabel(period){ return (period||'pre')==='post' ? 'หลังกลางภาค' : 'ก่อนกลางภาค'; }
+function periodLabel(period){
+  return {pre:'ก่อนกลางภาค',mid:'กลางภาค',post:'หลังกลางภาค',final:'ปลายภาค'}[period||'pre'] || 'ก่อนกลางภาค';
+}
 function setScanPeriod(period){
   scanPeriod = period==='post' ? 'post' : 'pre';
   document.querySelectorAll('[data-scan-period]').forEach(btn=>{
@@ -141,7 +143,9 @@ function renderAssignmentList(){
   const el=$('assignmentList'); if(!el) return;
   const groups=[
     {period:'pre', title:'ชิ้นงานก่อนกลางภาค'},
-    {period:'post', title:'ชิ้นงานหลังกลางภาค'}
+    {period:'mid', title:'ชิ้นงานกลางภาค'},
+    {period:'post', title:'ชิ้นงานหลังกลางภาค'},
+    {period:'final', title:'ชิ้นงานปลายภาค'}
   ];
   el.innerHTML=groups.map(g=>{
     const list=(assignments||[]).filter(a=>(a.period||'pre')===g.period).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
@@ -191,8 +195,9 @@ async function editAssignment(id){
   const a=assignments.find(x=>x.id===id); if(!a) return;
   const title=prompt('แก้ไขชื่อชิ้นงาน', a.title); if(title===null) return;
   const maxRaw=prompt('แก้ไขคะแนนเต็ม', a.max_score); if(maxRaw===null) return;
-  const periodRaw=prompt('ช่วงชิ้นงาน: พิมพ์ pre = ก่อนกลางภาค หรือ post = หลังกลางภาค', a.period || 'pre'); if(periodRaw===null) return;
-  const period=String(periodRaw).trim()==='post'?'post':'pre';
+  const periodRaw=prompt('ช่วงชิ้นงาน: pre = ก่อนกลางภาค, mid = กลางภาค, post = หลังกลางภาค, final = ปลายภาค', a.period || 'pre'); if(periodRaw===null) return;
+  const periodInput=String(periodRaw).trim().toLowerCase();
+  const period=['pre','mid','post','final'].includes(periodInput) ? periodInput : (a.period || 'pre');
   const max=Number(maxRaw); if(!title.trim() || Number.isNaN(max)) return toast('กรอกข้อมูลชิ้นงานไม่ถูกต้อง');
   const {error}=await supabaseClient.from('assignments').update({title:title.trim(),max_score:max,period}).eq('id',id);
   if(error) return toast(error.message);
@@ -571,7 +576,7 @@ async function loadRealScoreConfig(){
   realGroups.forEach(g=>{
     const sel=$(g.selectId); if(!sel) return;
     const old=selectedValues(g.selectId);
-    const wanted=(g.key==='pre'||g.key==='mid')?'pre':'post';
+    const wanted=g.key;
     const filtered=ass.filter(a=>(a.period||'pre')===wanted);
     sel.innerHTML=filtered.map((a,idx)=>`<option value="${a.id}" ${old.includes(a.id)?'selected':''}>${workNo(a,idx)}. ${escapeHtml(a.title)} (${escapeHtml(a.max_score)} คะแนน)</option>`).join('');
   });
