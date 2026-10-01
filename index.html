@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v26-four-scan-periods" />
+  <meta name="app-version" content="v27-four-report-periods" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v26" />
+  <link rel="stylesheet" href="styles.css?v=v27" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -143,7 +143,7 @@
 
     <section id="reportPage" class="page">
       <div class="card">
-        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แยกตารางก่อนกลางภาค / หลังกลางภาค ช่อง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button></div></div>
+        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แยกตารางก่อนกลางภาค / กลางภาค / หลังกลางภาค / ปลายภาค ช่อง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button></div></div>
         <div class="import-score-panel">
           <div class="section-head">
             <div><h2>นำเข้าคะแนนจากภายนอก</h2><p class="hint">โหลด Template ของห้องนี้ → กรอกคะแนนจากไฟล์เดิม → อัปโหลดกลับเข้าระบบ</p></div>
@@ -168,9 +168,17 @@
           <div class="section-head"><div><h2>คะแนนก่อนกลางภาค</h2><p id="reportPreSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPreExcelBtn" class="ghost">Excel ก่อนกลางภาค</button><button id="exportPreImageBtn" class="ghost">ภาพ PNG ก่อนกลางภาค</button></div></div>
           <div id="reportPreCapture" class="table-wrap"><table id="reportPreTable"><thead></thead><tbody></tbody></table></div>
         </div>
+        <div class="report-period-block" id="reportMidBlock">
+          <div class="section-head"><div><h2>คะแนนกลางภาค</h2><p id="reportMidSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportMidExcelBtn" class="ghost">Excel กลางภาค</button><button id="exportMidImageBtn" class="ghost">ภาพ PNG กลางภาค</button></div></div>
+          <div id="reportMidCapture" class="table-wrap"><table id="reportMidTable"><thead></thead><tbody></tbody></table></div>
+        </div>
         <div class="report-period-block" id="reportPostBlock">
           <div class="section-head"><div><h2>คะแนนหลังกลางภาค</h2><p id="reportPostSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPostExcelBtn" class="ghost">Excel หลังกลางภาค</button><button id="exportPostImageBtn" class="ghost">ภาพ PNG หลังกลางภาค</button></div></div>
           <div id="reportPostCapture" class="table-wrap"><table id="reportPostTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+        <div class="report-period-block" id="reportFinalBlock">
+          <div class="section-head"><div><h2>คะแนนปลายภาค</h2><p id="reportFinalSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportFinalExcelBtn" class="ghost">Excel ปลายภาค</button><button id="exportFinalImageBtn" class="ghost">ภาพ PNG ปลายภาค</button></div></div>
+          <div id="reportFinalCapture" class="table-wrap"><table id="reportFinalTable"><thead></thead><tbody></tbody></table></div>
         </div>
       </div>
     </section>
@@ -199,7 +207,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v26"></script>
-  <script src="./app.js?v=v26"></script>
+  <script src="./config.js?v=v27"></script>
+  <script src="./app.js?v=v27"></script>
 </body>
 </html>
