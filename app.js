@@ -22,7 +22,7 @@ function bindEvents(){
   document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
-  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
+  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
   safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel); safe('exportRealImageBtn',el=>el.onclick=exportRealImage);
@@ -314,20 +314,14 @@ async function loadReport(){
   catch(error){ return toast(error.message); }
   const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
   renderReportPeriod('pre', roomAssignments||[], stu||[], scoreMap);
-  renderReportPeriod('mid', roomAssignments||[], stu||[], scoreMap);
   renderReportPeriod('post', roomAssignments||[], stu||[], scoreMap);
-  renderReportPeriod('final', roomAssignments||[], stu||[], scoreMap);
   bindReportScoreInputs();
-  toast('โหลดรายงานครบ 4 ช่วงแล้ว');
+  toast('โหลดรายงานแยกก่อน/หลังกลางภาคแล้ว');
 }
 function reportPeriodInfo(period){
-  const map={
-    pre:{label:'ก่อนกลางภาค', tableId:'reportPreTable', summaryId:'reportPreSummary', captureId:'reportPreCapture'},
-    mid:{label:'กลางภาค', tableId:'reportMidTable', summaryId:'reportMidSummary', captureId:'reportMidCapture'},
-    post:{label:'หลังกลางภาค', tableId:'reportPostTable', summaryId:'reportPostSummary', captureId:'reportPostCapture'},
-    final:{label:'ปลายภาค', tableId:'reportFinalTable', summaryId:'reportFinalSummary', captureId:'reportFinalCapture'}
-  };
-  return map[period] || map.pre;
+  return period==='post'
+    ? {label:'หลังกลางภาค', tableId:'reportPostTable', summaryId:'reportPostSummary', captureId:'reportPostCapture'}
+    : {label:'ก่อนกลางภาค', tableId:'reportPreTable', summaryId:'reportPreSummary', captureId:'reportPreCapture'};
 }
 function renderReportPeriod(period, allAssignments, stu, scoreMap){
   const info=reportPeriodInfo(period);
