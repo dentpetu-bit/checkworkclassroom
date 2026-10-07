@@ -65,3 +65,13 @@
 @media(max-width:560px){
   .scan-period-tabs.scan-period-tabs-four{grid-template-columns:1fr}
 }
+
+
+/* v32: dynamic rooms + backup/system controls (Original theme) */
+.system-grid{margin-top:20px;align-items:start}
+.system-grid .import-card{margin-top:0}
+.room-manage-form{grid-template-columns:1fr .45fr}
+.room-manager-list{margin-top:14px;max-height:390px;overflow:auto}
+.system-actions{display:grid;gap:10px}
+.system-actions button{width:100%}
+@media(max-width:900px){.room-manage-form{grid-template-columns:1fr}.system-grid{grid-template-columns:1fr}}

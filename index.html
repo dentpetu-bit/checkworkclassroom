@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v31-ceil-half-point" />
+  <meta name="app-version" content="v32-rooms-backup-clear" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v31" />
+  <link rel="stylesheet" href="styles.css?v=v32" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -139,6 +139,35 @@
         <p id="importSummary" class="hint">ยังไม่มีข้อมูลนำเข้า</p>
         <div class="table-wrap compact"><table id="importPreview"><thead></thead><tbody></tbody></table></div>
       </div>
+
+      <div class="grid two student-grid system-grid">
+        <div class="card import-card">
+          <div class="section-head">
+            <div><h2>จัดการห้องเรียน</h2><p class="hint">เพิ่ม แก้ไข หรือลบห้องได้เอง รายชื่อห้องจะใช้กับทุกเมนูของระบบ</p></div>
+            <span id="roomCountBadge" class="count-badge">0 ห้อง</span>
+          </div>
+          <div class="form-grid room-manage-form">
+            <label>ชื่อห้อง<input id="newRoomName" placeholder="เช่น 4/2, 5/1, 6/7" /></label>
+            <label>ลำดับ<input id="newRoomOrder" type="number" min="1" placeholder="เช่น 1" /></label>
+          </div>
+          <div class="button-row">
+            <button id="addRoomBtn" type="button">+ เพิ่มห้อง</button>
+          </div>
+          <div id="roomManagerList" class="list room-manager-list"></div>
+        </div>
+
+        <div class="card import-card">
+          <div class="section-head">
+            <div><h2>สำรองและจัดการข้อมูล</h2><p class="hint">สำรองข้อมูล Supabase ทั้งระบบไป Google Drive ก่อนดำเนินการล้างข้อมูล</p></div>
+          </div>
+          <div class="system-actions">
+            <button id="backupDriveBtn" type="button">สำรองข้อมูลไป Google Drive</button>
+            <button id="downloadBackupBtn" type="button" class="ghost">ดาวน์โหลด Backup JSON</button>
+            <button id="clearSystemBtn" type="button" class="danger">ล้างข้อมูลทั้งระบบ</button>
+          </div>
+          <p id="backupStatus" class="hint">การล้างข้อมูลจะลบคะแนน ชิ้นงาน และนักเรียนทั้งหมด แต่คงรายชื่อห้องไว้</p>
+        </div>
+      </div>
     </section>
 
     <section id="reportPage" class="page">
@@ -207,7 +236,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v31"></script>
-  <script src="./app_v31_ceilhalf.js"></script>
+  <script src="./config.js?v=v32"></script>
+  <script src="./app_v32_system.js"></script>
 </body>
 </html>

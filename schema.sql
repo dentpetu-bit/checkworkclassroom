@@ -87,3 +87,24 @@ insert into assignments(room,title,max_score,sort_order,period) values ('4/2','�
 -- ('40201','นาย','ตัวอย่าง นักเรียน','4/2',1),
 -- ('40202','นางสาว','ทดลอง ระบบ','4/2',2);
 
+
+
+-- v32: ห้องเรียนแบบเพิ่ม/ลบ/แก้ไขได้จากหน้าเว็บ
+create table if not exists rooms (
+  id uuid primary key default gen_random_uuid(),
+  name text unique not null,
+  sort_order int not null default 0,
+  created_at timestamptz default now()
+);
+
+alter table rooms enable row level security;
+drop policy if exists "rooms read" on rooms;
+drop policy if exists "rooms insert" on rooms;
+drop policy if exists "rooms update" on rooms;
+drop policy if exists "rooms delete" on rooms;
+create policy "rooms read" on rooms for select using (true);
+create policy "rooms insert" on rooms for insert with check (true);
+create policy "rooms update" on rooms for update using (true) with check (true);
+create policy "rooms delete" on rooms for delete using (true);
+
+-- รายชื่อห้องเดิมจะถูกเติมอัตโนมัติจาก config.js เมื่อเปิดเว็บครั้งแรก
