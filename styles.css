@@ -75,3 +75,19 @@
 .system-actions{display:grid;gap:10px}
 .system-actions button{width:100%}
 @media(max-width:900px){.room-manage-form{grid-template-columns:1fr}.system-grid{grid-template-columns:1fr}}
+
+
+/* v33: dedicated system settings page */
+#systemPage .system-actions{
+  display:grid;
+  gap:10px;
+}
+#systemPage .system-actions button{
+  width:100%;
+}
+#systemPage .room-manager-list{
+  margin-top:18px;
+}
+#systemPage .saved-box p{
+  margin:8px 0 0;
+}
