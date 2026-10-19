@@ -6,6 +6,8 @@ let assignments = [], students = [], managedStudents = [], roomList = [];
 let scanState = 'student', selectedStudent = null, html5QrCode = null, lastText = '', lastAt = 0;
 let scanPeriod = 'pre';
 let keyboardScanBuffer = '', keyboardScanTimer = null, keyboardLastAt = 0;
+let attendanceStudents = [], attendanceRows = [], attendanceReportRows = [], attendanceSession = null;
+let nonexistentStudents = [];
 const $ = id => document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el && typeof fn === 'function') fn(el); return el; };
 function toast(msg){ const box=$('toast'); if(!box){ console.log(msg); return; } const el=document.createElement('div'); el.className='toast'; el.textContent=msg; box.appendChild(el); setTimeout(()=>el.remove(),3500); }
@@ -13,19 +15,40 @@ function setStatus(msg, ok=true){ const el=$('connectionStatus'); if(!el) return
 function fillSelect(el, items, getVal=x=>x, getText=x=>x){ if(!el) return; el.innerHTML=''; (items||[]).forEach((i,idx)=>{ const o=document.createElement('option'); o.value=getVal(i,idx); o.textContent=getText(i,idx); el.appendChild(o); }); }
 function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
 function workNo(a, idx){ const n=Number(a?.sort_order); const fallback=Number(idx)+1; return Number.isFinite(n) && n>0 ? n : (Number.isFinite(fallback) && fallback>0 ? fallback : 1); }
+
+function isNonexistentStudent(s){ return !!s?.is_nonexistent; }
+function nonexistentBadge(s){
+  return isNonexistentStudent(s) ? '<span class="nonexistent-badge">ไม่มีตัวตน</span>' : '';
+}
+function nonexistentRowClass(s){
+  return isNonexistentStudent(s) ? ' class="nonexistent-student-row"' : '';
+}
 function scoreCellClass(score, maxScore){ const v=Number(score); const max=Number(maxScore); if(v===0) return 'zero-score'; if(Number.isFinite(max) && max>0 && v===max) return 'full-score'; return ''; }
 async function withTimeout(promise, ms=12000, label='เชื่อมต่อช้าเกินไป'){ let t; const timeout=new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label)),ms)}); try{return await Promise.race([promise,timeout]);} finally{clearTimeout(t);} }
 window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.message||'ไม่ทราบสาเหตุ'), false); console.error(e.error||e.message); });
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ initAttendanceDefaults(); loadTeacherAttendance(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
   safe('addRoomBtn',el=>el.onclick=addRoom); safe('backupDriveBtn',el=>el.onclick=backupToGoogleDrive); safe('downloadBackupBtn',el=>el.onclick=downloadBackupJson); safe('clearSystemBtn',el=>el.onclick=clearSystemData);
+  safe('nonexistentRoomSelect',el=>el.onchange=loadNonexistentStudents);
+  safe('loadNonexistentStudentsBtn',el=>el.onclick=loadNonexistentStudents);
+  safe('attendanceRoomSelect',el=>el.onchange=loadTeacherAttendance);
+  safe('attendanceDate',el=>el.onchange=loadTeacherAttendance);
+  safe('loadAttendanceBtn',el=>el.onclick=loadTeacherAttendance);
+  safe('attendanceBarcodeFocusBtn',el=>el.onclick=focusAttendanceBarcode);
+  safe('attendanceBarcodeInput',el=>el.onkeydown=handleAttendanceBarcodeKeydown);
+  safe('showAttendanceQrBtn',el=>el.onclick=openAttendanceSelfSession);
+  safe('closeAttendanceQrBtn',el=>el.onclick=closeAttendanceSelfSession);
+  safe('loadAttendanceReportBtn',el=>el.onclick=loadAttendanceReport);
+  safe('exportAttendanceExcelBtn',el=>el.onclick=exportAttendanceExcel);
+  safe('exportAttendancePdfBtn',el=>el.onclick=exportAttendancePdf);
+  safe('attendanceSelfSubmitBtn',el=>el.onclick=submitAttendanceSelfCheck);
   safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel); safe('exportRealImageBtn',el=>el.onclick=exportRealImage);
 }
 
@@ -87,6 +110,8 @@ async function init(){
   try{
     await withTimeout((async()=>{ await loadRooms(); await Promise.all([loadAssignments(currentRoom('roomSelect')), loadStudents(), loadManagedStudents()]); })(),15000,'เชื่อมต่อ Supabase ไม่สำเร็จใน 15 วินาที');
     setStatus('เชื่อมต่อ Supabase แล้ว');
+    initAttendanceDefaults();
+    await initAttendanceSelfMode();
     toast('ระบบพร้อมใช้งาน');
   }catch(e){ setStatus('เชื่อมต่อไม่สำเร็จ: '+e.message, false); toast('เช็ค config.js / RLS / อินเทอร์เน็ต'); }
 }
@@ -97,7 +122,7 @@ function currentRoom(selectId){ return $(selectId)?.value || firstRoomName(); }
 function setRoomOptions(items){
   const normalized=(items||[]).map((r,idx)=>({id:r.id||null,name:String(r.name??r).trim(),sort_order:Number(r.sort_order)||idx+1})).filter(r=>r.name);
   roomList=normalized;
-  const ids=['roomSelect','workRoomSelect','reportRoomSelect','realRoomSelect','studentRoomSelect','importRoomSelect','studentFormRoom'];
+  const ids=['roomSelect','workRoomSelect','reportRoomSelect','realRoomSelect','studentRoomSelect','importRoomSelect','studentFormRoom','attendanceRoomSelect','nonexistentRoomSelect'];
   ids.forEach(id=>{
     const el=$(id); if(!el) return;
     const old=el.value;
@@ -162,14 +187,16 @@ async function deleteRoom(id,name){
 }
 async function collectBackupData(){
   if(!supabaseClient) throw new Error('ยังไม่เชื่อมต่อ Supabase');
-  const [r,s,a,sc]=await Promise.all([
+  const [r,s,a,sc,att,ses]=await Promise.all([
     supabaseClient.from('rooms').select('*').order('sort_order',{ascending:true}),
     supabaseClient.from('students').select('*').order('room',{ascending:true}).order('number',{ascending:true}),
     supabaseClient.from('assignments').select('*').order('room',{ascending:true}).order('sort_order',{ascending:true}),
-    supabaseClient.from('scores').select('*')
+    supabaseClient.from('scores').select('*'),
+    supabaseClient.from('attendance').select('*'),
+    supabaseClient.from('attendance_sessions').select('*')
   ]);
-  const err=[r.error,s.error,a.error,sc.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v33',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[]};
+  const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
+  return {app:'Kru Dew QR Score Studio',version:'v34',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -204,6 +231,8 @@ async function clearSystemData(){
   const typed=prompt('เพื่อยืนยัน ให้พิมพ์คำว่า ล้างข้อมูลทั้งหมด');
   if(String(typed||'').trim()!=='ล้างข้อมูลทั้งหมด') return toast('ยกเลิกการล้างข้อมูล');
   safe('backupStatus',el=>el.textContent='กำลังล้างข้อมูล...');
+  const da=await supabaseClient.from('attendance').delete().not('id','is',null); if(da.error) return toast(da.error.message);
+  const ds=await supabaseClient.from('attendance_sessions').delete().not('id','is',null); if(ds.error) return toast(ds.error.message);
   const d1=await supabaseClient.from('scores').delete().not('id','is',null); if(d1.error) return toast(d1.error.message);
   const d2=await supabaseClient.from('assignments').delete().not('id','is',null); if(d2.error) return toast(d2.error.message);
   const d3=await supabaseClient.from('students').delete().not('id','is',null); if(d3.error) return toast(d3.error.message);
@@ -242,7 +271,7 @@ function setScanPeriod(period){
     selectedStudent=null;
     scanState='student';
     updateMode();
-    safe('currentStudent',el=>el.innerHTML='เปลี่ยนช่วงคะแนนแล้ว กรุณาสแกนนักเรียนใหม่');
+    safe('currentStudent',el=>{el.classList.remove('nonexistent-student-card'); el.innerHTML='เปลี่ยนช่วงคะแนนแล้ว กรุณาสแกนนักเรียนใหม่';});
   }
   renderScanAssignmentSelect();
 }
@@ -365,13 +394,13 @@ function showBigOverlay(kind, main, sub=''){
   window.__scanOverlayTimer=setTimeout(()=>{el.className='scan-overlay'; el.innerHTML='';},1800);
 }
 async function onScan(decodedText){ const now=Date.now(); if(decodedText===lastText && now-lastAt<1600) return; lastText=decodedText; lastAt=now; const value=normalizeQR(decodedText); if(scanState==='student') await handleStudentCode(value); else await handleScore(value); }
-async function handleStudentCode(code){ let stu = students.find(s=>String(s.student_code)===String(code)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code); selectedStudent=stu; safe('currentStudent',el=>el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`); showBigOverlay('student', `${stu.prefix||''}${stu.full_name}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`); scanState='score'; updateMode(); toast('พบนักเรียนแล้ว → สแกนคะแนนต่อ'); }
+async function handleStudentCode(code){ let stu = students.find(s=>String(s.student_code)===String(code)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code); selectedStudent=stu; safe('currentStudent',el=>{ el.classList.toggle('nonexistent-student-card',isNonexistentStudent(stu)); el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)} ${nonexistentBadge(stu)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`; }); showBigOverlay('student', `${stu.prefix||''}${stu.full_name}${isNonexistentStudent(stu)?' [ไม่มีตัวตน]':''}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`); scanState='score'; updateMode(); toast(isNonexistentStudent(stu)?'คำเตือน: นักเรียนคนนี้ตั้งค่าเป็น “ไม่มีตัวตน”':'พบนักเรียนแล้ว → สแกนคะแนนต่อ'); }
 async function handleScore(raw){
   const score=Number(raw); if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น'); if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน');
   const stu=selectedStudent; const result=await saveScore(stu.student_code, score);
   if(result?.saved) showBigOverlay('score', `${score} คะแนน`, `${stu.prefix||''}${stu.full_name}`);
   else if(result?.duplicate) showBigOverlay('warning', 'ลงคะแนนแล้ว', `${stu.prefix||''}${stu.full_name} | คะแนนเดิม ${result.oldScore}`);
-  scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย');
+  scanState='student'; selectedStudent=null; updateMode(); safe('currentStudent',el=>{el.classList.remove('nonexistent-student-card'); el.innerHTML='สแกนนักเรียนคนต่อไปได้เลย';});
 }
 async function getExistingScore(studentId, assignmentId){ const {data,error}=await supabaseClient.from('scores').select('id,score').eq('student_id',studentId).eq('assignment_id',assignmentId).maybeSingle(); if(error) throw error; return data || null; }
 async function saveScore(studentCode, score){
@@ -467,7 +496,7 @@ function renderReportPeriod(period, allAssignments, stu, scoreMap){
       const cellClass = scoreCellClass(v, a.max_score);
       return `<td class="score-cell ${cellClass}"><input class="score-input" type="number" step="0.01" value="${escapeHtml(v)}" data-student-id="${s.id}" data-assignment-id="${a.id}" data-max-score="${escapeHtml(a.max_score)}" data-original="${escapeHtml(v)}" title="แก้ไขคะแนนแล้วกด Enter หรือคลิกออก" /></td>`;
     }).join('');
-    return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${tds}<td><b class="row-total">${escapeHtml(round2(total))}</b></td></tr>`
+    return `<tr${nonexistentRowClass(s)}><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)} ${nonexistentBadge(s)}</td>${tds}<td><b class="row-total">${escapeHtml(round2(total))}</b></td></tr>`
   }).join('');
   table.querySelector('thead').innerHTML=thead;
   table.querySelector('tbody').innerHTML=tbody || `<tr><td colspan="4">ยังไม่มีข้อมูล${info.label}</td></tr>`;
@@ -507,7 +536,7 @@ async function exportReportImage(period){ if(!window.html2canvas) return toast('
 function exportExcel(){ exportReportExcel('pre'); }
 async function exportImage(){ await exportReportImage('pre'); }
 async function loadManagedStudents(){ if(!supabaseClient) return; const room=currentRoom('studentRoomSelect'); if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; managedStudents=data||[]; renderStudentTable(); }
-function renderStudentTable(){ if(!$('studentTable')) return; const q=($('studentSearchInput')?.value||'').trim().toLowerCase(); const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q))); safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`); $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>'; $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr><td>${escapeHtml(s.number??'')}</td><td>${escapeHtml(s.student_code)}</td><td>${escapeHtml(s.prefix??'')}</td><td class="text-left"><b>${escapeHtml(s.full_name)}</b></td><td>${escapeHtml(s.room)}</td><td class="table-actions"><button class="mini" data-edit="${s.id}">แก้ไข</button><button class="mini danger" data-delete="${s.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนในห้องนี้</td></tr>'; document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete)); }
+function renderStudentTable(){ if(!$('studentTable')) return; const q=($('studentSearchInput')?.value||'').trim().toLowerCase(); const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q))); safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`); $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>'; $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr${nonexistentRowClass(s)}><td>${escapeHtml(s.number??'')}</td><td>${escapeHtml(s.student_code)}</td><td>${escapeHtml(s.prefix??'')}</td><td class="text-left"><b>${escapeHtml(s.full_name)}</b> ${nonexistentBadge(s)}</td><td>${escapeHtml(s.room)}</td><td class="table-actions"><button class="mini" data-edit="${s.id}">แก้ไข</button><button class="mini danger" data-delete="${s.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนในห้องนี้</td></tr>'; document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete)); }
 function clearStudentForm(){ ['studentId','studentCode','studentPrefix','studentFullName','studentNumber'].forEach(id=>safe(id,el=>el.value='')); safe('studentFormRoom',el=>el.value=currentRoom('studentRoomSelect') || ''); safe('studentFormTitle',el=>el.textContent='เพิ่มนักเรียน'); safe('saveStudentBtn',el=>el.textContent='บันทึกนักเรียน'); }
 function editStudent(id){ const s=managedStudents.find(x=>x.id===id); if(!s) return; safe('studentId',el=>el.value=s.id); safe('studentCode',el=>el.value=s.student_code||''); safe('studentPrefix',el=>el.value=s.prefix||''); safe('studentFullName',el=>el.value=s.full_name||''); safe('studentNumber',el=>el.value=s.number??''); safe('studentFormRoom',el=>el.value=s.room||''); safe('studentFormTitle',el=>el.textContent='แก้ไขนักเรียน'); safe('saveStudentBtn',el=>el.textContent='อัปเดตข้อมูล'); window.scrollTo({top:0,behavior:'smooth'}); }
 async function saveStudentForm(e){ e.preventDefault(); if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const id=$('studentId')?.value; const payload={student_code:$('studentCode')?.value.trim(), prefix:$('studentPrefix')?.value.trim() || null, full_name:$('studentFullName')?.value.trim(), room:$('studentFormRoom')?.value, number:$('studentNumber')?.value==='' ? null : Number($('studentNumber')?.value)}; if(!payload.student_code || !payload.full_name || !payload.room) return toast('กรุณากรอก รหัส / ชื่อ / ห้อง ให้ครบ'); const query=id ? supabaseClient.from('students').update(payload).eq('id',id) : supabaseClient.from('students').insert(payload); const {error}=await query; if(error) return toast(error.message); toast(id?'อัปเดตนักเรียนแล้ว':'เพิ่มนักเรียนแล้ว'); safe('studentRoomSelect',el=>el.value=payload.room); clearStudentForm(); await Promise.all([loadManagedStudents(), loadStudents()]); }
@@ -753,7 +782,7 @@ async function loadRealScore(){
       return `<td><b>${real}</b><div class="real-sub">${round2(got)} / ${round2(full)}</div></td>`;
     }).join('');
     total=round2(total);
-    return `<tr><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)}</td>${cells}<td><b>${total}</b></td><td><b>${gradeFromScore(total)}</b></td></tr>`;
+    return `<tr${nonexistentRowClass(s)}><td>${escapeHtml(s.number||'')}</td><td>${escapeHtml(s.student_code)}</td><td class="text-left">${escapeHtml(s.prefix||'')}${escapeHtml(s.full_name)} ${nonexistentBadge(s)}</td>${cells}<td><b>${total}</b></td><td><b>${gradeFromScore(total)}</b></td></tr>`;
   }).join('');
   const table=$('realScoreTable'); table.querySelector('thead').innerHTML=thead; table.querySelector('tbody').innerHTML=tbody;
   toast('คำนวณคะแนนจริงแล้ว');
@@ -809,4 +838,424 @@ async function exportRealImage(){
 
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+
+// ===========================================
+// v35 นักเรียนไม่มีตัวตน
+// ===========================================
+async function loadNonexistentStudents(){
+  if(!supabaseClient) return;
+  const room=currentRoom('nonexistentRoomSelect');
+  if(!room) return toast('กรุณาเลือกห้อง');
+  const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
+  if(error) return toast(error.message);
+  nonexistentStudents=data||[];
+  renderNonexistentStudents();
+}
+function renderNonexistentStudents(){
+  const table=$('nonexistentStudentTable'); if(!table) return;
+  const rows=nonexistentStudents||[];
+  const inactiveCount=rows.filter(isNonexistentStudent).length;
+  safe('nonexistentCountBadge',el=>el.textContent=`ไม่มีตัวตน ${inactiveCount} คน / ทั้งหมด ${rows.length} คน`);
+  table.querySelector('tbody').innerHTML=rows.map(s=>{
+    const inactive=isNonexistentStudent(s);
+    return `<tr${nonexistentRowClass(s)}>
+      <td>${escapeHtml(s.number??'')}</td>
+      <td>${escapeHtml(s.student_code||'')}</td>
+      <td class="text-left">${escapeHtml([s.prefix,s.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(s)}</td>
+      <td>${inactive ? '<span class="nonexistent-badge">ไม่มีตัวตน</span>' : '<span class="normal-student-badge">นักเรียนปกติ</span>'}</td>
+      <td>
+        <button type="button" class="mini ${inactive?'ghost':'danger'}" data-toggle-nonexistent="${s.id}" data-next-nonexistent="${inactive?'false':'true'}">
+          ${inactive?'คืนเป็นนักเรียนปกติ':'ตั้งเป็นไม่มีตัวตน'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5">ยังไม่มีนักเรียนในห้องนี้</td></tr>';
+
+  document.querySelectorAll('[data-toggle-nonexistent]').forEach(btn=>{
+    btn.onclick=()=>toggleNonexistentStudent(btn.dataset.toggleNonexistent,btn.dataset.nextNonexistent==='true');
+  });
+}
+async function toggleNonexistentStudent(studentId,nextValue){
+  const student=nonexistentStudents.find(s=>s.id===studentId);
+  if(!student) return;
+  const action=nextValue?'ตั้งเป็นนักเรียนไม่มีตัวตน':'คืนเป็นนักเรียนปกติ';
+  if(!confirm(`${action}\n${student.prefix||''}${student.full_name||''} รหัส ${student.student_code}\n\nยืนยันหรือไม่?`)) return;
+  const {error}=await supabaseClient.from('students').update({is_nonexistent:nextValue}).eq('id',studentId);
+  if(error) return toast(error.message);
+
+  student.is_nonexistent=nextValue;
+  [students,managedStudents,attendanceStudents].forEach(list=>{
+    const x=(list||[]).find(s=>s.id===studentId);
+    if(x) x.is_nonexistent=nextValue;
+  });
+  renderNonexistentStudents();
+  if($('studentTable')) renderStudentTable();
+  if($('attendanceTable')) renderAttendanceTable();
+  toast(nextValue?'ตั้งค่าเป็น “ไม่มีตัวตน” แล้ว':'คืนเป็นนักเรียนปกติแล้ว');
+}
+
+// ==============================
+// v34 Attendance / เช็คเวลาเรียน
+// ==============================
+function localDateISO(d=new Date()){
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function attendanceStatusLabel(v){
+  return {present:'มา',late:'สาย',leave:'ลา',absent:'ขาด'}[v] || 'ขาด';
+}
+function attendanceStatusOrder(){
+  return ['present','late','leave','absent'];
+}
+function initAttendanceDefaults(){
+  const today=localDateISO();
+  safe('attendanceDate',el=>{ if(!el.value) el.value=today; });
+  safe('attendanceReportTo',el=>{ if(!el.value) el.value=today; });
+  safe('attendanceReportFrom',el=>{
+    if(!el.value){
+      const d=new Date(); d.setDate(1); el.value=localDateISO(d);
+    }
+  });
+}
+async function loadTeacherAttendance(){
+  if(!supabaseClient) return;
+  initAttendanceDefaults();
+  const room=currentRoom('attendanceRoomSelect');
+  const date=$('attendanceDate')?.value || localDateISO();
+  if(!room) return toast('กรุณาเลือกห้อง');
+
+  const {data:stu,error:stuErr}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
+  if(stuErr) return toast(stuErr.message);
+  attendanceStudents=stu||[];
+
+  if(!attendanceStudents.length){
+    attendanceRows=[];
+    renderAttendanceTable();
+    return toast('ห้องนี้ยังไม่มีนักเรียน');
+  }
+
+  const {data:existing,error:attErr}=await supabaseClient.from('attendance').select('*').eq('room',room).eq('attendance_date',date);
+  if(attErr) return toast(attErr.message);
+  const existingMap=new Map((existing||[]).map(r=>[r.student_id,r]));
+
+  const missing=attendanceStudents
+    .filter(s=>!existingMap.has(s.id))
+    .map(s=>({
+      student_id:s.id,
+      room,
+      attendance_date:date,
+      status:'absent',
+      source:'teacher'
+    }));
+
+  if(missing.length){
+    const {error}=await supabaseClient.from('attendance').upsert(missing,{onConflict:'student_id,attendance_date'});
+    if(error) return toast(error.message);
+  }
+
+  const {data:rows,error}=await supabaseClient.from('attendance').select('*').eq('room',room).eq('attendance_date',date);
+  if(error) return toast(error.message);
+  attendanceRows=rows||[];
+  renderAttendanceTable();
+}
+function renderAttendanceTable(){
+  const tbody=$('attendanceTable')?.querySelector('tbody');
+  if(!tbody) return;
+  const map=new Map((attendanceRows||[]).map(r=>[r.student_id,r]));
+  tbody.innerHTML=(attendanceStudents||[]).map(s=>{
+    const r=map.get(s.id) || {status:'absent'};
+    const status=r.status||'absent';
+    const time=r.checked_at ? new Date(r.checked_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '-';
+    const buttons=attendanceStatusOrder().map(st=>`<button type="button" class="attendance-status-btn ${st} ${status===st?'active':''}" data-att-student="${s.id}" data-att-status="${st}">${attendanceStatusLabel(st)}</button>`).join('');
+    return `<tr${nonexistentRowClass(s)}>
+      <td>${escapeHtml(s.number??'')}</td>
+      <td>${escapeHtml(s.student_code||'')}</td>
+      <td class="text-left">${escapeHtml([s.prefix,s.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(s)}</td>
+      <td><div class="attendance-status-group">${buttons}</div></td>
+      <td>${escapeHtml(time)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5">ยังไม่มีรายชื่อนักเรียน</td></tr>';
+
+  document.querySelectorAll('[data-att-student]').forEach(btn=>{
+    btn.onclick=()=>setAttendanceStatus(btn.dataset.attStudent,btn.dataset.attStatus,'teacher');
+  });
+  renderAttendanceSummary();
+}
+function renderAttendanceSummary(){
+  const counts={present:0,late:0,leave:0,absent:0};
+  const map=new Map((attendanceRows||[]).map(r=>[r.student_id,r.status||'absent']));
+  (attendanceStudents||[]).forEach(s=>counts[map.get(s.id)||'absent']++);
+  safe('attendancePresentCount',el=>el.textContent=counts.present);
+  safe('attendanceLateCount',el=>el.textContent=counts.late);
+  safe('attendanceLeaveCount',el=>el.textContent=counts.leave);
+  safe('attendanceAbsentCount',el=>el.textContent=counts.absent);
+}
+async function setAttendanceStatus(studentId,status,source='teacher'){
+  const room=currentRoom('attendanceRoomSelect');
+  const date=$('attendanceDate')?.value || localDateISO();
+  if(!['present','late','leave','absent'].includes(status)) status='absent';
+  const checked=status==='absent' ? null : new Date().toISOString();
+  const payload={
+    student_id:studentId,
+    room,
+    attendance_date:date,
+    status,
+    source,
+    checked_at:checked
+  };
+  const {data,error}=await supabaseClient.from('attendance').upsert(payload,{onConflict:'student_id,attendance_date'}).select('*').single();
+  if(error) return toast(error.message);
+  const idx=attendanceRows.findIndex(r=>r.student_id===studentId);
+  if(idx>=0) attendanceRows[idx]=data; else attendanceRows.push(data);
+  renderAttendanceTable();
+}
+function focusAttendanceBarcode(){
+  const el=$('attendanceBarcodeInput');
+  if(!el) return;
+  el.focus(); el.select?.();
+  toast('พร้อมรับรหัสนักเรียน');
+}
+async function handleAttendanceBarcodeKeydown(e){
+  if(e.key!=='Enter' && e.key!=='Tab') return;
+  e.preventDefault();
+  const code=String(e.currentTarget.value||'').trim();
+  e.currentTarget.value='';
+  if(!code) return;
+  await markAttendanceByCode(code);
+  e.currentTarget.focus();
+}
+async function markAttendanceByCode(code){
+  if(!attendanceStudents.length) await loadTeacherAttendance();
+  const clean=normalizeQR(String(code||'').trim());
+  const student=attendanceStudents.find(s=>String(s.student_code)===String(clean));
+  if(!student){
+    safe('attendanceScanStatus',el=>el.textContent=`ไม่พบรหัส ${clean} ในห้องนี้`);
+    return toast('ไม่พบนักเรียนรหัส '+clean);
+  }
+  if(isNonexistentStudent(student)){
+    safe('attendanceScanStatus',el=>el.textContent=`${student.full_name} ถูกตั้งค่าเป็น “ไม่มีตัวตน”`);
+    return toast('นักเรียนคนนี้ถูกตั้งค่าเป็น “ไม่มีตัวตน”');
+  }
+  await setAttendanceStatus(student.id,'present','scanner');
+  safe('attendanceScanStatus',el=>el.textContent=`บันทึก “มา” : ${student.prefix||''}${student.full_name||''} (${student.student_code})`);
+  toast(`เช็คชื่อ ${student.full_name} = มา`);
+}
+function randomAttendanceToken(){
+  if(window.crypto?.getRandomValues){
+    const a=new Uint8Array(16); crypto.getRandomValues(a);
+    return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  return Date.now().toString(36)+Math.random().toString(36).slice(2);
+}
+async function openAttendanceSelfSession(){
+  if(!supabaseClient) return;
+  await loadTeacherAttendance();
+  const room=currentRoom('attendanceRoomSelect');
+  const date=$('attendanceDate')?.value || localDateISO();
+
+  // ปิดรอบเก่าของห้อง/วันที่ก่อน
+  await supabaseClient.from('attendance_sessions').update({active:false}).eq('room',room).eq('attendance_date',date).eq('active',true);
+
+  const token=randomAttendanceToken();
+  const {data,error}=await supabaseClient.from('attendance_sessions').insert({
+    token,room,attendance_date:date,active:true
+  }).select('*').single();
+  if(error) return toast(error.message);
+  attendanceSession=data;
+
+  const url=new URL(window.location.href);
+  url.search='';
+  url.hash='';
+  url.searchParams.set('attendance_self',token);
+  const selfUrl=url.toString();
+
+  safe('attendanceSelfUrl',el=>el.value=selfUrl);
+  safe('attendanceQrInfo',el=>el.textContent=`ห้อง ${room} • วันที่ ${date} • เปิดรับเช็คอินอยู่`);
+  safe('attendanceQrPanel',el=>el.classList.remove('hidden'));
+
+  const canvas=$('attendanceQrCanvas');
+  if(window.QRCode?.toCanvas && canvas){
+    QRCode.toCanvas(canvas,selfUrl,{width:260,margin:2},err=>{ if(err) toast('สร้าง QR ไม่สำเร็จ'); });
+  }else{
+    toast('โหลดไลบรารี QR ไม่สำเร็จ');
+  }
+}
+async function closeAttendanceSelfSession(){
+  if(!supabaseClient) return;
+  const room=currentRoom('attendanceRoomSelect');
+  const date=$('attendanceDate')?.value || localDateISO();
+  const {error}=await supabaseClient.from('attendance_sessions').update({active:false}).eq('room',room).eq('attendance_date',date).eq('active',true);
+  if(error) return toast(error.message);
+  attendanceSession=null;
+  safe('attendanceQrPanel',el=>el.classList.add('hidden'));
+  toast('ปิดรับเช็คอินแล้ว');
+}
+async function initAttendanceSelfMode(){
+  const token=new URLSearchParams(location.search).get('attendance_self');
+  if(!token) return;
+  const shell=$('attendanceSelfShell');
+  if(shell) shell.classList.remove('hidden');
+  document.querySelector('.sidebar')?.classList.add('hidden');
+  document.querySelector('main.app')?.classList.add('hidden');
+
+  const {data:session,error}=await supabaseClient.from('attendance_sessions').select('*').eq('token',token).maybeSingle();
+  if(error || !session || !session.active){
+    safe('attendanceSelfSessionInfo',el=>el.textContent='QR นี้หมดอายุหรือปิดรับเช็คอินแล้ว');
+    safe('attendanceSelfSubmitBtn',el=>el.disabled=true);
+    return;
+  }
+  attendanceSession=session;
+  const {data:stu,error:stuErr}=await supabaseClient.from('students').select('*').eq('room',session.room).order('number',{ascending:true});
+  if(stuErr) return safe('attendanceSelfSessionInfo',el=>el.textContent='โหลดรายชื่อนักเรียนไม่สำเร็จ');
+
+  const selfSelect=$('attendanceSelfStudent');
+  if(selfSelect){
+    selfSelect.innerHTML='';
+    (stu||[]).forEach(s=>{
+      const o=document.createElement('option');
+      o.value=s.id;
+      o.textContent=`${s.number??'-'} | ${[s.prefix,s.full_name].filter(Boolean).join(' ')}${isNonexistentStudent(s)?' [ไม่มีตัวตน]':''}`;
+      if(isNonexistentStudent(s)) o.disabled=true;
+      selfSelect.appendChild(o);
+    });
+  }
+  safe('attendanceSelfSessionInfo',el=>el.textContent=`ห้อง ${session.room} • วันที่ ${session.attendance_date}`);
+}
+async function submitAttendanceSelfCheck(){
+  if(!attendanceSession?.active) return toast('รอบเช็คชื่อนี้ปิดแล้ว');
+  const studentId=$('attendanceSelfStudent')?.value;
+  const status=$('attendanceSelfStatus')?.value || 'present';
+  if(!studentId) return toast('กรุณาเลือกชื่อ');
+
+  // ตรวจ session ซ้ำก่อนบันทึก
+  const {data:session,error:sErr}=await supabaseClient.from('attendance_sessions').select('*').eq('id',attendanceSession.id).maybeSingle();
+  if(sErr || !session?.active){
+    safe('attendanceSelfResult',el=>el.textContent='รอบเช็คชื่อนี้ปิดแล้ว');
+    return;
+  }
+
+  const {data:student,error:stErr}=await supabaseClient.from('students').select('*').eq('id',studentId).eq('room',session.room).maybeSingle();
+  if(stErr || !student) return toast('ไม่พบข้อมูลนักเรียนในห้องนี้');
+  if(isNonexistentStudent(student)) return toast('รายชื่อนี้ถูกตั้งค่าเป็น “ไม่มีตัวตน” ไม่สามารถเช็คอินได้');
+
+  const payload={
+    student_id:student.id,
+    room:session.room,
+    attendance_date:session.attendance_date,
+    status,
+    source:'self',
+    checked_at:new Date().toISOString()
+  };
+  const {error}=await supabaseClient.from('attendance').upsert(payload,{onConflict:'student_id,attendance_date'});
+  if(error) return toast(error.message);
+
+  safe('attendanceSelfResult',el=>el.innerHTML=`เช็คอินสำเร็จ<br><b>${escapeHtml([student.prefix,student.full_name].filter(Boolean).join(' '))}</b><br>สถานะ: ${attendanceStatusLabel(status)}`);
+  safe('attendanceSelfSubmitBtn',el=>el.disabled=true);
+}
+async function loadAttendanceReport(){
+  if(!supabaseClient) return;
+  initAttendanceDefaults();
+  const room=currentRoom('attendanceRoomSelect');
+  const from=$('attendanceReportFrom')?.value;
+  const to=$('attendanceReportTo')?.value;
+  if(!from || !to) return toast('กรุณาเลือกช่วงวันที่');
+  if(from>to) return toast('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด');
+
+  const [stuRes,attRes]=await Promise.all([
+    supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}),
+    supabaseClient.from('attendance').select('*').eq('room',room).gte('attendance_date',from).lte('attendance_date',to).order('attendance_date',{ascending:true})
+  ]);
+  if(stuRes.error) return toast(stuRes.error.message);
+  if(attRes.error) return toast(attRes.error.message);
+
+  const stu=stuRes.data||[], rows=attRes.data||[];
+  const dates=[...new Set(rows.map(r=>r.attendance_date))].sort();
+  const byStudent=new Map();
+  stu.forEach(s=>byStudent.set(s.id,{student:s,present:0,late:0,leave:0,absent:0,total:dates.length,details:{}}));
+  rows.forEach(r=>{
+    const x=byStudent.get(r.student_id); if(!x) return;
+    const st=['present','late','leave','absent'].includes(r.status)?r.status:'absent';
+    x[st]++; x.details[r.attendance_date]=st;
+  });
+
+  // ถ้ามีวันเรียนแล้ว แต่บางนักเรียนไม่มี record ในวันนั้น ให้ถือว่าขาด
+  byStudent.forEach(x=>{
+    const recorded=x.present+x.late+x.leave+x.absent;
+    if(recorded<dates.length) x.absent += (dates.length-recorded);
+  });
+
+  attendanceReportRows=[...byStudent.values()];
+  attendanceReportRows._dates=dates;
+  attendanceReportRows._room=room;
+  attendanceReportRows._from=from;
+  attendanceReportRows._to=to;
+  renderAttendanceReport();
+}
+function renderAttendanceReport(){
+  const table=$('attendanceReportTable'); if(!table) return;
+  const rows=attendanceReportRows||[];
+  const dates=rows._dates||[];
+  const room=rows._room||currentRoom('attendanceRoomSelect');
+  const from=rows._from||'', to=rows._to||'';
+
+  table.querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>รวมวัน</th></tr>';
+  table.querySelector('tbody').innerHTML=rows.map(x=>`<tr${nonexistentRowClass(x.student)}>
+    <td>${escapeHtml(x.student.number??'')}</td>
+    <td>${escapeHtml(x.student.student_code||'')}</td>
+    <td class="text-left">${escapeHtml([x.student.prefix,x.student.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(x.student)}</td>
+    <td>${x.present}</td><td>${x.late}</td><td>${x.leave}</td><td>${x.absent}</td><td>${x.total}</td>
+  </tr>`).join('') || '<tr><td colspan="8">ไม่มีข้อมูลในช่วงวันที่ที่เลือก</td></tr>';
+
+  safe('attendanceReportMeta',el=>el.textContent=`ห้อง ${room} • ${from} ถึง ${to} • จำนวนวันที่มีการเช็คชื่อ ${dates.length} วัน`);
+}
+function exportAttendanceExcel(){
+  const rows=attendanceReportRows||[];
+  if(!rows.length) return toast('กรุณาโหลดรายงานก่อน');
+  const dates=rows._dates||[];
+  const summary=[
+    ['รายงานสรุปเวลาเรียน'],
+    [`ห้อง ${rows._room||''}`,`ช่วง ${rows._from||''} ถึง ${rows._to||''}`,`จำนวนวัน ${dates.length}`],
+    [],
+    ['เลขที่','รหัสนักเรียน','ชื่อ-สกุล','มา','สาย','ลา','ขาด','รวมวัน']
+  ];
+  rows.forEach(x=>summary.push([
+    x.student.number??'',
+    x.student.student_code||'',
+    [x.student.prefix,x.student.full_name].filter(Boolean).join(' '),
+    x.present,x.late,x.leave,x.absent,x.total
+  ]));
+
+  const detail=[['เลขที่','รหัสนักเรียน','ชื่อ-สกุล',...dates]];
+  rows.forEach(x=>detail.push([
+    x.student.number??'',
+    x.student.student_code||'',
+    [x.student.prefix,x.student.full_name].filter(Boolean).join(' '),
+    ...dates.map(d=>attendanceStatusLabel(x.details[d]||'absent'))
+  ]));
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'สรุปเวลาเรียน');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detail),'รายวัน');
+  XLSX.writeFile(wb,`Attendance_${rows._room||'room'}_${rows._from||''}_${rows._to||''}.xlsx`);
+}
+async function exportAttendancePdf(){
+  const rows=attendanceReportRows||[];
+  if(!rows.length) return toast('กรุณาโหลดรายงานก่อน');
+  const el=$('attendanceReportCapture');
+  if(!el) return;
+  if(!window.html2pdf) return toast('โหลดระบบ PDF ไม่สำเร็จ');
+  const filename=`Attendance_${rows._room||'room'}_${rows._from||''}_${rows._to||''}.pdf`;
+  const opt={
+    margin:[8,8,8,8],
+    filename,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+    pagebreak:{mode:['avoid-all','css','legacy']}
+  };
+  await html2pdf().set(opt).from(el).save();
+}
+
 })();

@@ -4,17 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v33-system-settings" />
+  <meta name="app-version" content="v35-nonexistent-students" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v33-system-settings" />
+  <link rel="stylesheet" href="styles.css?v=v35-nonexistent-students" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
   <aside class="sidebar">
     <div class="brand"><div class="logo">KD</div><div><b>QR Score Studio</b><span>By Kru Dew</span></div></div>
     <button class="nav active" data-page="scorePage">สแกนคะแนน</button>
+    <button class="nav" data-page="attendancePage">เช็คเวลาเรียน</button>
     <button class="nav" data-page="workPage">จัดการชิ้นงาน</button>
     <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
+    <button class="nav" data-page="nonexistentPage">ตั้งค่านักเรียนไม่มีตัวตน</button>
     <button class="nav" data-page="reportPage">รายงาน/นำเข้าคะแนน</button>
     <button class="nav" data-page="realScorePage">คะแนนจริง</button>
     <button class="nav" data-page="systemPage">ตั้งค่าระบบ</button>
@@ -70,6 +72,108 @@
             <label>คะแนน<input id="manualScore" type="number" step="0.01" placeholder="เช่น 10" /></label>
           </div>
           <button id="manualSaveBtn" class="wide">บันทึก Manual</button>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="attendancePage" class="page">
+      <div class="card">
+        <div class="report-head">
+          <div>
+            <h2>เช็คเวลาเรียน</h2>
+            <p class="hint">เลือกห้องและวันที่ ระบบตั้งค่าเริ่มต้นนักเรียนทุกคนเป็น “ขาด” แล้วสามารถเปลี่ยนเป็น มา / สาย / ลา ได้ทันที</p>
+          </div>
+          <div class="actions">
+            <select id="attendanceRoomSelect"></select>
+            <input id="attendanceDate" type="date" />
+            <button id="loadAttendanceBtn" type="button">โหลดรายชื่อ</button>
+          </div>
+        </div>
+
+        <div class="attendance-summary">
+          <div class="attendance-stat present"><b id="attendancePresentCount">0</b><span>มา</span></div>
+          <div class="attendance-stat late"><b id="attendanceLateCount">0</b><span>สาย</span></div>
+          <div class="attendance-stat leave"><b id="attendanceLeaveCount">0</b><span>ลา</span></div>
+          <div class="attendance-stat absent"><b id="attendanceAbsentCount">0</b><span>ขาด</span></div>
+        </div>
+
+        <div class="barcode-panel attendance-scanner">
+          <div class="barcode-head">
+            <b>สแกนรหัสนักเรียนด้วยเครื่องยิง QR</b>
+            <span>ยิงรหัสนักเรียน → ระบบเปลี่ยนสถานะเป็น “มา” และบันทึกอัตโนมัติ</span>
+          </div>
+          <div class="barcode-row">
+            <input id="attendanceBarcodeInput" autocomplete="off" inputmode="none" placeholder="คลิกช่องนี้ แล้วสแกน QR รหัสนักเรียน" />
+            <button id="attendanceBarcodeFocusBtn" type="button" class="ghost">พร้อมรับเครื่องยิง</button>
+          </div>
+          <p id="attendanceScanStatus" class="hint">รอสแกนรหัสนักเรียน</p>
+        </div>
+
+        <div class="section-head attendance-self-head">
+          <div>
+            <h2>นักเรียนเช็คชื่อด้วยตนเอง</h2>
+            <p class="hint">ครูกดแสดง QR → นักเรียนสแกน → เลือกชื่อตนเองและสถานะ → กดเช็คอินเข้าเรียน</p>
+          </div>
+          <div class="button-row no-margin">
+            <button id="showAttendanceQrBtn" type="button">แสดง QR เช็คชื่อ</button>
+            <button id="closeAttendanceQrBtn" type="button" class="ghost">ปิดรับเช็คอิน</button>
+          </div>
+        </div>
+
+        <div id="attendanceQrPanel" class="attendance-qr-panel hidden">
+          <div class="attendance-qr-box">
+            <canvas id="attendanceQrCanvas"></canvas>
+          </div>
+          <div>
+            <b>QR สำหรับนักเรียนเช็คชื่อ</b>
+            <p id="attendanceQrInfo" class="hint"></p>
+            <input id="attendanceSelfUrl" readonly />
+          </div>
+        </div>
+
+        <div class="table-wrap attendance-table-wrap">
+          <table id="attendanceTable">
+            <thead>
+              <tr>
+                <th>เลขที่</th>
+                <th>รหัส</th>
+                <th>ชื่อ-สกุล</th>
+                <th>สถานะ</th>
+                <th>เวลาเช็คอิน</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card attendance-report-card">
+        <div class="report-head">
+          <div>
+            <h2>รายงานเวลาเรียน</h2>
+            <p class="hint">เลือกช่วงวันที่เพื่อดูสรุป มา / สาย / ลา / ขาด รายบุคคล</p>
+          </div>
+          <div class="actions">
+            <input id="attendanceReportFrom" type="date" />
+            <input id="attendanceReportTo" type="date" />
+            <button id="loadAttendanceReportBtn" type="button">ดูรายงาน</button>
+            <button id="exportAttendanceExcelBtn" type="button" class="ghost">Excel</button>
+            <button id="exportAttendancePdfBtn" type="button" class="ghost">PDF A4</button>
+          </div>
+        </div>
+
+        <div id="attendanceReportCapture" class="attendance-report-capture">
+          <div class="attendance-report-title">
+            <h3>รายงานสรุปเวลาเรียน</h3>
+            <p id="attendanceReportMeta">ยังไม่ได้โหลดรายงาน</p>
+          </div>
+          <div class="table-wrap">
+            <table id="attendanceReportTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -139,6 +243,45 @@
         </div>
         <p id="importSummary" class="hint">ยังไม่มีข้อมูลนำเข้า</p>
         <div class="table-wrap compact"><table id="importPreview"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+
+    <section id="nonexistentPage" class="page">
+      <div class="card">
+        <div class="report-head">
+          <div>
+            <h2>ตั้งค่านักเรียนไม่มีตัวตน</h2>
+            <p class="hint">ใช้สำหรับรายชื่อที่อยู่ในระบบแต่ไม่มีนักเรียนตัวจริง เมื่อกำหนดแล้วระบบจะแสดงแถวนั้นเป็นสีเทาในส่วนคะแนนและเช็คเวลาเรียน</p>
+          </div>
+          <div class="actions">
+            <select id="nonexistentRoomSelect"></select>
+            <button id="loadNonexistentStudentsBtn" type="button">โหลดรายชื่อ</button>
+          </div>
+        </div>
+
+        <div class="section-head nonexistent-head">
+          <div>
+            <h3>รายชื่อนักเรียน</h3>
+            <p class="hint">กด “ตั้งเป็นไม่มีตัวตน” หรือ “คืนเป็นนักเรียนปกติ” ได้ตลอดเวลา</p>
+          </div>
+          <span id="nonexistentCountBadge" class="count-badge">0 คน</span>
+        </div>
+
+        <div class="table-wrap">
+          <table id="nonexistentStudentTable">
+            <thead>
+              <tr>
+                <th>เลขที่</th>
+                <th>รหัส</th>
+                <th>ชื่อ-สกุล</th>
+                <th>สถานะ</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -256,13 +399,42 @@
 
   </main>
 
+
+  <div id="attendanceSelfShell" class="attendance-self-shell hidden">
+    <div class="attendance-self-card">
+      <div class="brand attendance-self-brand">
+        <div class="logo">KD</div>
+        <div><b>เช็คชื่อเข้าเรียน</b><span>Kru Dew QR Score Studio</span></div>
+      </div>
+      <h1>เช็คชื่อเข้าเรียน</h1>
+      <p id="attendanceSelfSessionInfo" class="hint">กำลังตรวจสอบรอบเช็คชื่อ...</p>
+
+      <label>เลือกชื่อนักเรียน
+        <select id="attendanceSelfStudent"></select>
+      </label>
+
+      <label class="mt-12">สถานะ
+        <select id="attendanceSelfStatus">
+          <option value="present">มา</option>
+          <option value="late">สาย</option>
+          <option value="leave">ลา</option>
+        </select>
+      </label>
+
+      <button id="attendanceSelfSubmitBtn" type="button" class="wide">เช็คอินเข้าเรียน</button>
+      <div id="attendanceSelfResult" class="saved-box">กรุณาเลือกชื่อและสถานะ</div>
+    </div>
+  </div>
+
   <div id="scanOverlay" class="scan-overlay"></div>
   <div id="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="./config.js?v=v33-system-settings"></script>
-  <script src="./app.js?v=v33-system-settings"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
+  <script src="./config.js?v=v35-nonexistent-students"></script>
+  <script src="./app.js?v=v35-nonexistent-students"></script>
 </body>
 </html>

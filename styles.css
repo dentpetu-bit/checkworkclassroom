@@ -91,3 +91,97 @@
 #systemPage .saved-box p{
   margin:8px 0 0;
 }
+
+
+/* =========================================================
+   v34 Attendance / เช็คเวลาเรียน
+   ========================================================= */
+.hidden{display:none!important}
+.attendance-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.attendance-stat{border-radius:18px;padding:16px;text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.attendance-stat b{display:block;font-size:30px;line-height:1.1}
+.attendance-stat span{display:block;margin-top:4px;font-weight:800}
+.attendance-stat.present{border-color:rgba(34,197,94,.45)}
+.attendance-stat.late{border-color:rgba(245,158,11,.45)}
+.attendance-stat.leave{border-color:rgba(59,130,246,.45)}
+.attendance-stat.absent{border-color:rgba(239,68,68,.45)}
+.attendance-scanner{margin:18px 0}
+.attendance-self-head{margin-top:24px}
+.no-margin{margin-top:0}
+.attendance-qr-panel{display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:18px;border-radius:22px;margin:16px 0}
+.attendance-qr-box{background:#fff;border-radius:18px;padding:12px;display:grid;place-items:center}
+.attendance-qr-box canvas{max-width:100%;height:auto}
+.attendance-status-group{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.attendance-status-btn{padding:7px 10px;border-radius:10px;background:#e5e7eb;color:#374151;box-shadow:none;font-size:12px}
+.attendance-status-btn.present.active{background:#16a34a;color:white}
+.attendance-status-btn.late.active{background:#d97706;color:white}
+.attendance-status-btn.leave.active{background:#2563eb;color:white}
+.attendance-status-btn.absent.active{background:#dc2626;color:white}
+.attendance-report-card{margin-top:20px}
+.attendance-report-capture{background:#fff;color:#111827;padding:18px;border-radius:18px;margin-top:14px}
+.attendance-report-title{text-align:center}
+.attendance-report-title h3{margin:0;font-size:22px}
+.attendance-report-title p{margin:5px 0 10px;color:#475569}
+.attendance-self-shell{min-height:100vh;display:grid;place-items:center;padding:20px;background:#08111f}
+.attendance-self-card{width:min(520px,100%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:28px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.attendance-self-card h1{margin:8px 0 4px}
+.attendance-self-brand{margin-bottom:16px}
+#attendanceSelfUrl{font-size:12px}
+@media(max-width:900px){
+  .attendance-summary{grid-template-columns:repeat(2,1fr)}
+  .attendance-qr-panel{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .attendance-summary{grid-template-columns:1fr 1fr}
+  .attendance-status-group{display:grid;grid-template-columns:1fr 1fr}
+}
+
+
+/* =========================================================
+   v35 นักเรียนไม่มีตัวตน
+   ========================================================= */
+.nonexistent-head{margin-top:18px}
+.nonexistent-student-row>td{
+  background:#d1d5db!important;
+  color:#6b7280!important;
+}
+.nonexistent-student-row .score-input{
+  background:#e5e7eb!important;
+  color:#6b7280!important;
+  border-color:#9ca3af!important;
+}
+.nonexistent-student-row .real-sub{
+  color:#6b7280!important;
+}
+.nonexistent-student-row button:not(.danger){
+  filter:grayscale(.8);
+}
+.nonexistent-badge{
+  display:inline-block;
+  margin-left:6px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#6b7280;
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.normal-student-badge{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:999px;
+  background:rgba(34,197,94,.15);
+  color:#86efac;
+  font-size:11px;
+  font-weight:800;
+}
+.nonexistent-student-card{
+  background:#4b5563!important;
+  color:#f3f4f6!important;
+  border-left-color:#9ca3af!important;
+}
+.nonexistent-student-card .student-meta{
+  color:#d1d5db!important;
+}

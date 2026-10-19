@@ -108,3 +108,72 @@ create policy "rooms update" on rooms for update using (true) with check (true);
 create policy "rooms delete" on rooms for delete using (true);
 
 -- รายชื่อห้องเดิมจะถูกเติมอัตโนมัติจาก config.js เมื่อเปิดเว็บครั้งแรก
+
+
+-- ============================================================
+-- v34: ระบบเช็คเวลาเรียน
+-- ============================================================
+create table if not exists attendance_sessions (
+  id uuid primary key default gen_random_uuid(),
+  token text unique not null,
+  room text not null,
+  attendance_date date not null,
+  active boolean not null default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists attendance (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references students(id) on delete cascade,
+  room text not null,
+  attendance_date date not null,
+  status text not null default 'absent'
+    check (status in ('present','late','leave','absent')),
+  source text not null default 'teacher'
+    check (source in ('teacher','scanner','self')),
+  checked_at timestamptz,
+  updated_at timestamptz default now(),
+  unique(student_id, attendance_date)
+);
+
+create index if not exists idx_attendance_room_date
+  on attendance(room, attendance_date);
+
+create index if not exists idx_attendance_student_date
+  on attendance(student_id, attendance_date);
+
+create index if not exists idx_attendance_sessions_token
+  on attendance_sessions(token);
+
+alter table attendance enable row level security;
+alter table attendance_sessions enable row level security;
+
+drop policy if exists "attendance read" on attendance;
+drop policy if exists "attendance insert" on attendance;
+drop policy if exists "attendance update" on attendance;
+drop policy if exists "attendance delete" on attendance;
+
+create policy "attendance read" on attendance for select using (true);
+create policy "attendance insert" on attendance for insert with check (true);
+create policy "attendance update" on attendance for update using (true) with check (true);
+create policy "attendance delete" on attendance for delete using (true);
+
+drop policy if exists "attendance_sessions read" on attendance_sessions;
+drop policy if exists "attendance_sessions insert" on attendance_sessions;
+drop policy if exists "attendance_sessions update" on attendance_sessions;
+drop policy if exists "attendance_sessions delete" on attendance_sessions;
+
+create policy "attendance_sessions read" on attendance_sessions for select using (true);
+create policy "attendance_sessions insert" on attendance_sessions for insert with check (true);
+create policy "attendance_sessions update" on attendance_sessions for update using (true) with check (true);
+create policy "attendance_sessions delete" on attendance_sessions for delete using (true);
+
+
+-- ============================================================
+-- v35: นักเรียนไม่มีตัวตน
+-- ============================================================
+alter table students
+  add column if not exists is_nonexistent boolean not null default false;
+
+create index if not exists idx_students_room_nonexistent
+  on students(room, is_nonexistent);
