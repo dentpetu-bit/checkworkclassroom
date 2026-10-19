@@ -185,3 +185,88 @@
 .nonexistent-student-card .student-meta{
   color:#d1d5db!important;
 }
+
+
+/* =========================================================
+   v36 Attendance QR + Daily Report + PDF Fix
+   ========================================================= */
+.attendance-qr-box #attendanceQrCanvas{
+  width:260px;
+  min-height:260px;
+  display:grid;
+  place-items:center;
+}
+.attendance-qr-box #attendanceQrCanvas img,
+.attendance-qr-box #attendanceQrCanvas canvas{
+  display:block!important;
+  max-width:260px;
+  width:260px;
+  height:260px;
+  image-rendering:pixelated;
+}
+.attendance-report-legend{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px 10px;
+  flex-wrap:wrap;
+  margin:8px 0 10px;
+  font-size:13px;
+}
+.attendance-report-overall{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:6px 0 12px;
+  font-size:12px;
+}
+.attendance-report-overall span{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+.att-code{
+  width:27px;
+  height:27px;
+  border-radius:8px;
+  display:inline-grid;
+  place-items:center;
+  color:#fff;
+  font-weight:900;
+  line-height:1;
+}
+.att-code.present,.summary-num.present,.att-overall.present{background:#16a34a;color:#fff}
+.att-code.late,.summary-num.late,.att-overall.late{background:#f59e0b;color:#fff}
+.att-code.leave,.summary-num.leave,.att-overall.leave{background:#2563eb;color:#fff}
+.att-code.absent,.summary-num.absent,.att-overall.absent{background:#dc2626;color:#fff}
+.summary-num,.att-overall{
+  min-width:28px;
+  min-height:25px;
+  padding:4px 7px;
+  border-radius:8px;
+  display:inline-grid;
+  place-items:center;
+  font-weight:900;
+}
+.attendance-day-cell{min-width:42px;padding:6px!important}
+.attendance-date-head{min-width:46px;white-space:nowrap;font-size:11px}
+.attendance-name-cell{min-width:220px}
+.sum-head.present{background:#dcfce7;color:#166534}
+.sum-head.late{background:#fef3c7;color:#92400e}
+.sum-head.leave{background:#dbeafe;color:#1e40af}
+.sum-head.absent{background:#fee2e2;color:#991b1b}
+.attendance-total-row td{background:#f8fafc!important;border-top:2px solid #94a3b8;font-weight:800}
+.text-right{text-align:right!important}
+#attendanceReportTable{font-size:12px;min-width:max-content}
+#attendanceReportTable th,#attendanceReportTable td{padding:7px 6px}
+#attendanceReportCapture .table-wrap{overflow:auto}
+@media(max-width:900px){
+  .attendance-qr-box #attendanceQrCanvas,
+  .attendance-qr-box #attendanceQrCanvas img,
+  .attendance-qr-box #attendanceQrCanvas canvas{
+    width:220px;
+    height:220px;
+    min-height:220px;
+  }
+}

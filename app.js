@@ -906,6 +906,17 @@ function localDateISO(d=new Date()){
 function attendanceStatusLabel(v){
   return {present:'มา',late:'สาย',leave:'ลา',absent:'ขาด'}[v] || 'ขาด';
 }
+function attendanceStatusShort(v){
+  return {present:'ม',late:'ส',leave:'ล',absent:'ข'}[v] || 'ข';
+}
+function attendanceStatusChip(v){
+  const st=['present','late','leave','absent'].includes(v)?v:'absent';
+  return `<span class="att-code ${st}" title="${attendanceStatusLabel(st)}">${attendanceStatusShort(st)}</span>`;
+}
+function formatAttendanceDateShort(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}` : String(iso||'');
+}
 function attendanceStatusOrder(){
   return ['present','late','leave','absent'];
 }
@@ -1075,11 +1086,25 @@ async function openAttendanceSelfSession(){
   safe('attendanceQrInfo',el=>el.textContent=`ห้อง ${room} • วันที่ ${date} • เปิดรับเช็คอินอยู่`);
   safe('attendanceQrPanel',el=>el.classList.remove('hidden'));
 
-  const canvas=$('attendanceQrCanvas');
-  if(window.QRCode?.toCanvas && canvas){
-    QRCode.toCanvas(canvas,selfUrl,{width:260,margin:2},err=>{ if(err) toast('สร้าง QR ไม่สำเร็จ'); });
+  const qrBox=$('attendanceQrCanvas');
+  if(qrBox && typeof window.QRCode==='function'){
+    try{
+      qrBox.innerHTML='';
+      new QRCode(qrBox,{
+        text:selfUrl,
+        width:260,
+        height:260,
+        colorDark:'#000000',
+        colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.H
+      });
+      toast('สร้าง QR เช็คชื่อแล้ว');
+    }catch(e){
+      console.error(e);
+      toast('สร้าง QR ไม่สำเร็จ: '+e.message);
+    }
   }else{
-    toast('โหลดไลบรารี QR ไม่สำเร็จ');
+    toast('โหลดไลบรารี QR ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ');
   }
 }
 async function closeAttendanceSelfSession(){
@@ -1200,15 +1225,61 @@ function renderAttendanceReport(){
   const room=rows._room||currentRoom('attendanceRoomSelect');
   const from=rows._from||'', to=rows._to||'';
 
-  table.querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ-สกุล</th><th>มา</th><th>สาย</th><th>ลา</th><th>ขาด</th><th>รวมวัน</th></tr>';
-  table.querySelector('tbody').innerHTML=rows.map(x=>`<tr${nonexistentRowClass(x.student)}>
-    <td>${escapeHtml(x.student.number??'')}</td>
-    <td>${escapeHtml(x.student.student_code||'')}</td>
-    <td class="text-left">${escapeHtml([x.student.prefix,x.student.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(x.student)}</td>
-    <td>${x.present}</td><td>${x.late}</td><td>${x.leave}</td><td>${x.absent}</td><td>${x.total}</td>
-  </tr>`).join('') || '<tr><td colspan="8">ไม่มีข้อมูลในช่วงวันที่ที่เลือก</td></tr>';
+  const dailyHeaders=dates.map(d=>`<th class="attendance-date-head" title="${escapeHtml(d)}">${escapeHtml(formatAttendanceDateShort(d))}</th>`).join('');
+  table.querySelector('thead').innerHTML=`<tr>
+    <th>เลขที่</th>
+    <th>รหัส</th>
+    <th>ชื่อ-สกุล</th>
+    ${dailyHeaders}
+    <th class="sum-head present">ม</th>
+    <th class="sum-head late">ส</th>
+    <th class="sum-head leave">ล</th>
+    <th class="sum-head absent">ข</th>
+    <th>รวมวัน</th>
+  </tr>`;
+
+  let overall={present:0,late:0,leave:0,absent:0};
+  rows.forEach(x=>{
+    overall.present+=Number(x.present)||0;
+    overall.late+=Number(x.late)||0;
+    overall.leave+=Number(x.leave)||0;
+    overall.absent+=Number(x.absent)||0;
+  });
+
+  const bodyRows=rows.map(x=>{
+    const daily=dates.map(d=>`<td class="attendance-day-cell">${attendanceStatusChip(x.details[d]||'absent')}</td>`).join('');
+    return `<tr${nonexistentRowClass(x.student)}>
+      <td>${escapeHtml(x.student.number??'')}</td>
+      <td>${escapeHtml(x.student.student_code||'')}</td>
+      <td class="text-left attendance-name-cell">${escapeHtml([x.student.prefix,x.student.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(x.student)}</td>
+      ${daily}
+      <td><span class="summary-num present">${x.present}</span></td>
+      <td><span class="summary-num late">${x.late}</span></td>
+      <td><span class="summary-num leave">${x.leave}</span></td>
+      <td><span class="summary-num absent">${x.absent}</span></td>
+      <td><b>${x.total}</b></td>
+    </tr>`;
+  }).join('');
+
+  const colspanBase=3+dates.length;
+  const totalRow=rows.length ? `<tr class="attendance-total-row">
+    <td colspan="${colspanBase}" class="text-right"><b>รวมสถานะทั้งห้อง</b></td>
+    <td><b class="summary-num present">${overall.present}</b></td>
+    <td><b class="summary-num late">${overall.late}</b></td>
+    <td><b class="summary-num leave">${overall.leave}</b></td>
+    <td><b class="summary-num absent">${overall.absent}</b></td>
+    <td><b>${overall.present+overall.late+overall.leave+overall.absent}</b></td>
+  </tr>` : '';
+
+  table.querySelector('tbody').innerHTML=bodyRows+totalRow || `<tr><td colspan="${8+dates.length}">ไม่มีข้อมูลในช่วงวันที่ที่เลือก</td></tr>`;
 
   safe('attendanceReportMeta',el=>el.textContent=`ห้อง ${room} • ${from} ถึง ${to} • จำนวนวันที่มีการเช็คชื่อ ${dates.length} วัน`);
+  safe('attendanceReportOverall',el=>el.innerHTML=`
+    <span><b class="att-overall present">ม ${overall.present}</b> มา</span>
+    <span><b class="att-overall late">ส ${overall.late}</b> สาย</span>
+    <span><b class="att-overall leave">ล ${overall.leave}</b> ลา</span>
+    <span><b class="att-overall absent">ข ${overall.absent}</b> ขาด</span>
+  `);
 }
 function exportAttendanceExcel(){
   const rows=attendanceReportRows||[];
@@ -1217,45 +1288,115 @@ function exportAttendanceExcel(){
   const summary=[
     ['รายงานสรุปเวลาเรียน'],
     [`ห้อง ${rows._room||''}`,`ช่วง ${rows._from||''} ถึง ${rows._to||''}`,`จำนวนวัน ${dates.length}`],
+    ['คำย่อ','ม = มา','ส = สาย','ล = ลา','ข = ขาด'],
     [],
-    ['เลขที่','รหัสนักเรียน','ชื่อ-สกุล','มา','สาย','ลา','ขาด','รวมวัน']
+    ['เลขที่','รหัสนักเรียน','ชื่อ-สกุล',...dates.map(formatAttendanceDateShort),'ม','ส','ล','ข','รวมวัน']
   ];
-  rows.forEach(x=>summary.push([
-    x.student.number??'',
-    x.student.student_code||'',
-    [x.student.prefix,x.student.full_name].filter(Boolean).join(' '),
-    x.present,x.late,x.leave,x.absent,x.total
-  ]));
 
-  const detail=[['เลขที่','รหัสนักเรียน','ชื่อ-สกุล',...dates]];
-  rows.forEach(x=>detail.push([
-    x.student.number??'',
-    x.student.student_code||'',
-    [x.student.prefix,x.student.full_name].filter(Boolean).join(' '),
-    ...dates.map(d=>attendanceStatusLabel(x.details[d]||'absent'))
-  ]));
+  let overall={present:0,late:0,leave:0,absent:0};
+  rows.forEach(x=>{
+    overall.present+=x.present; overall.late+=x.late; overall.leave+=x.leave; overall.absent+=x.absent;
+    summary.push([
+      x.student.number??'',
+      x.student.student_code||'',
+      [x.student.prefix,x.student.full_name].filter(Boolean).join(' ')+(isNonexistentStudent(x.student)?' [ไม่มีตัวตน]':''),
+      ...dates.map(d=>attendanceStatusShort(x.details[d]||'absent')),
+      x.present,x.late,x.leave,x.absent,x.total
+    ]);
+  });
+  summary.push(['','','รวมทั้งห้อง',...dates.map(()=>''),overall.present,overall.late,overall.leave,overall.absent,overall.present+overall.late+overall.leave+overall.absent]);
 
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'สรุปเวลาเรียน');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detail),'รายวัน');
+  const ws=XLSX.utils.aoa_to_sheet(summary);
+  ws['!cols']=[
+    {wch:7},{wch:12},{wch:28},
+    ...dates.map(()=>({wch:6})),
+    {wch:7},{wch:7},{wch:7},{wch:7},{wch:9}
+  ];
+  XLSX.utils.book_append_sheet(wb,ws,'รายงานเวลาเรียน');
   XLSX.writeFile(wb,`Attendance_${rows._room||'room'}_${rows._from||''}_${rows._to||''}.xlsx`);
 }
 async function exportAttendancePdf(){
   const rows=attendanceReportRows||[];
   if(!rows.length) return toast('กรุณาโหลดรายงานก่อน');
   const el=$('attendanceReportCapture');
-  if(!el) return;
-  if(!window.html2pdf) return toast('โหลดระบบ PDF ไม่สำเร็จ');
+  if(!el) return toast('ไม่พบพื้นที่รายงาน');
+  if(!window.html2canvas) return toast('โหลดระบบสร้างภาพรายงานไม่สำเร็จ');
+  if(!window.jspdf?.jsPDF) return toast('โหลดระบบ PDF ไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ');
+
   const filename=`Attendance_${rows._room||'room'}_${rows._from||''}_${rows._to||''}.pdf`;
-  const opt={
-    margin:[8,8,8,8],
-    filename,
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
-    pagebreak:{mode:['avoid-all','css','legacy']}
-  };
-  await html2pdf().set(opt).from(el).save();
+  const wrap=el.querySelector('.table-wrap');
+  const oldOverflow=wrap?.style.overflow;
+  const oldMaxHeight=wrap?.style.maxHeight;
+  const oldWidth=el.style.width;
+
+  try{
+    toast('กำลังสร้าง PDF...');
+    await document.fonts?.ready;
+
+    if(wrap){
+      wrap.style.overflow='visible';
+      wrap.style.maxHeight='none';
+    }
+
+    // ขยายพื้นที่ capture ให้เห็นตารางทุกคอลัมน์ ไม่ตัดเฉพาะส่วนที่มองเห็น
+    const table=$('attendanceReportTable');
+    const targetWidth=Math.max(el.scrollWidth,table?.scrollWidth||0,1100);
+    el.style.width=`${targetWidth}px`;
+
+    const canvas=await html2canvas(el,{
+      scale:2,
+      useCORS:true,
+      backgroundColor:'#ffffff',
+      scrollX:0,
+      scrollY:0,
+      windowWidth:targetWidth,
+      logging:false
+    });
+
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const margin=6;
+    const usableW=pageW-margin*2;
+    const usableH=pageH-margin*2;
+
+    // ตัด canvas ตามความสูงของ A4 เพื่อให้ข้อมูลทุกแถวขึ้นจริง
+    const pxPerMm=canvas.width/usableW;
+    const sliceHeightPx=Math.max(1,Math.floor(usableH*pxPerMm));
+    let y=0, page=0;
+
+    while(y<canvas.height){
+      const h=Math.min(sliceHeightPx,canvas.height-y);
+      const slice=document.createElement('canvas');
+      slice.width=canvas.width;
+      slice.height=h;
+      const ctx=slice.getContext('2d');
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,slice.width,slice.height);
+      ctx.drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+
+      if(page>0) pdf.addPage('a4','landscape');
+      const imgData=slice.toDataURL('image/jpeg',0.96);
+      const imgH=h/pxPerMm;
+      pdf.addImage(imgData,'JPEG',margin,margin,usableW,imgH,'FAST');
+      y+=h;
+      page++;
+    }
+
+    pdf.save(filename);
+    toast('สร้าง PDF เรียบร้อยแล้ว');
+  }catch(e){
+    console.error(e);
+    toast('สร้าง PDF ไม่สำเร็จ: '+e.message);
+  }finally{
+    if(wrap){
+      wrap.style.overflow=oldOverflow||'';
+      wrap.style.maxHeight=oldMaxHeight||'';
+    }
+    el.style.width=oldWidth||'';
+  }
 }
 
 })();
