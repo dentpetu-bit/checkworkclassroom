@@ -270,3 +270,14 @@
     min-height:220px;
   }
 }
+
+
+/* v37 ลบข้อมูลเช็คชื่อรายวัน */
+.attendance-delete-hint{
+  margin:10px 0 0;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.18);
+}
+#deleteAttendanceDateBtn{white-space:nowrap}

@@ -41,6 +41,7 @@ function bindEvents(){
   safe('attendanceRoomSelect',el=>el.onchange=loadTeacherAttendance);
   safe('attendanceDate',el=>el.onchange=loadTeacherAttendance);
   safe('loadAttendanceBtn',el=>el.onclick=loadTeacherAttendance);
+  safe('deleteAttendanceDateBtn',el=>el.onclick=deleteAttendanceDate);
   safe('attendanceBarcodeFocusBtn',el=>el.onclick=focusAttendanceBarcode);
   safe('attendanceBarcodeInput',el=>el.onkeydown=handleAttendanceBarcodeKeydown);
   safe('showAttendanceQrBtn',el=>el.onclick=openAttendanceSelfSession);
@@ -196,7 +197,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v34',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v37',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -1022,6 +1023,84 @@ async function setAttendanceStatus(studentId,status,source='teacher'){
   if(idx>=0) attendanceRows[idx]=data; else attendanceRows.push(data);
   renderAttendanceTable();
 }
+
+async function deleteAttendanceDate(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+
+  const room=currentRoom('attendanceRoomSelect');
+  const date=$('attendanceDate')?.value || localDateISO();
+  if(!room || !date) return toast('กรุณาเลือกห้องและวันที่');
+
+  const [attCountRes,sessionCountRes]=await Promise.all([
+    supabaseClient.from('attendance').select('id',{count:'exact',head:true}).eq('room',room).eq('attendance_date',date),
+    supabaseClient.from('attendance_sessions').select('id',{count:'exact',head:true}).eq('room',room).eq('attendance_date',date)
+  ]);
+
+  if(attCountRes.error) return toast('ตรวจสอบข้อมูลเช็คชื่อไม่สำเร็จ: '+attCountRes.error.message);
+  if(sessionCountRes.error) return toast('ตรวจสอบรอบ QR ไม่สำเร็จ: '+sessionCountRes.error.message);
+
+  const attendanceCount=attCountRes.count||0;
+  const sessionCount=sessionCountRes.count||0;
+
+  if(attendanceCount===0 && sessionCount===0){
+    return toast(`ห้อง ${room} วันที่ ${date} ไม่มีข้อมูลเช็คชื่อให้ลบ`);
+  }
+
+  const ok=confirm(
+    `ยืนยันลบข้อมูลการเช็คชื่อ?\n\n`+
+    `ห้อง: ${room}\n`+
+    `วันที่: ${date}\n`+
+    `ข้อมูลนักเรียน: ${attendanceCount} รายการ\n`+
+    `รอบ QR: ${sessionCount} รอบ\n\n`+
+    `การลบนี้ไม่กระทบข้อมูลวันอื่น คะแนน หรือนักเรียน`
+  );
+  if(!ok) return;
+
+  const delAttendance=await supabaseClient
+    .from('attendance')
+    .delete()
+    .eq('room',room)
+    .eq('attendance_date',date);
+
+  if(delAttendance.error){
+    return toast('ลบข้อมูลเช็คชื่อไม่สำเร็จ: '+delAttendance.error.message);
+  }
+
+  const delSessions=await supabaseClient
+    .from('attendance_sessions')
+    .delete()
+    .eq('room',room)
+    .eq('attendance_date',date);
+
+  if(delSessions.error){
+    return toast('ลบข้อมูลเช็คชื่อแล้ว แต่ลบรอบ QR ไม่สำเร็จ: '+delSessions.error.message);
+  }
+
+  attendanceSession=null;
+  attendanceRows=[];
+  attendanceStudents=[];
+
+  safe('attendanceQrPanel',el=>el.classList.add('hidden'));
+  safe('attendanceQrCanvas',el=>el.innerHTML='');
+  safe('attendanceSelfUrl',el=>el.value='');
+  safe('attendanceQrInfo',el=>el.textContent='');
+  safe('attendanceScanStatus',el=>el.textContent=`ลบข้อมูลห้อง ${room} วันที่ ${date} แล้ว`);
+  safe('attendanceTable',table=>{
+    const body=table.querySelector('tbody');
+    if(body) body.innerHTML='<tr><td colspan="5">ลบข้อมูลการเช็คชื่อของวันที่นี้แล้ว หากต้องการเช็คใหม่ให้กด “โหลดรายชื่อ”</td></tr>';
+  });
+  safe('attendancePresentCount',el=>el.textContent='0');
+  safe('attendanceLateCount',el=>el.textContent='0');
+  safe('attendanceLeaveCount',el=>el.textContent='0');
+  safe('attendanceAbsentCount',el=>el.textContent='0');
+
+  if((attendanceReportRows||[]).length){
+    await loadAttendanceReport();
+  }
+
+  toast(`ลบข้อมูลเช็คชื่อห้อง ${room} วันที่ ${date} เรียบร้อยแล้ว`);
+}
+
 function focusAttendanceBarcode(){
   const el=$('attendanceBarcodeInput');
   if(!el) return;
@@ -1031,11 +1110,12 @@ function focusAttendanceBarcode(){
 async function handleAttendanceBarcodeKeydown(e){
   if(e.key!=='Enter' && e.key!=='Tab') return;
   e.preventDefault();
-  const code=String(e.currentTarget.value||'').trim();
-  e.currentTarget.value='';
+  const input=e.currentTarget;
+  const code=String(input?.value||'').trim();
+  if(input) input.value='';
   if(!code) return;
   await markAttendanceByCode(code);
-  e.currentTarget.focus();
+  $('attendanceBarcodeInput')?.focus();
 }
 async function markAttendanceByCode(code){
   if(!attendanceStudents.length) await loadTeacherAttendance();

@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v36-attendance-fix" />
+  <meta name="app-version" content="v37-delete-attendance-date" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v36-attendance-fix" />
+  <link rel="stylesheet" href="styles.css?v=v37-delete-attendance-date" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -88,8 +88,10 @@
             <select id="attendanceRoomSelect"></select>
             <input id="attendanceDate" type="date" />
             <button id="loadAttendanceBtn" type="button">โหลดรายชื่อ</button>
+            <button id="deleteAttendanceDateBtn" type="button" class="danger">ลบข้อมูลวันที่นี้</button>
           </div>
         </div>
+        <p class="hint attendance-delete-hint">ปุ่ม “ลบข้อมูลวันที่นี้” จะลบเฉพาะข้อมูลเช็คชื่อของห้องและวันที่ที่เลือก รวมถึงรอบ QR ของวันนั้น โดยไม่กระทบวันอื่น</p>
 
         <div class="attendance-summary">
           <div class="attendance-stat present"><b id="attendancePresentCount">0</b><span>มา</span></div>
@@ -442,7 +444,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script src="./config.js?v=v36-attendance-fix"></script>
-  <script src="./app.js?v=v36-attendance-fix"></script>
+  <script src="./config.js?v=v37-delete-attendance-date"></script>
+  <script src="./app.js?v=v37-delete-attendance-date"></script>
 </body>
 </html>
