@@ -281,3 +281,7 @@
   border:1px solid rgba(239,68,68,.18);
 }
 #deleteAttendanceDateBtn{white-space:nowrap}
+
+
+/* v38 manual attendance load */
+#attendanceRoomSelect option[value=""]{color:#9fb3ce}

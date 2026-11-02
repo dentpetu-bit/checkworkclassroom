@@ -29,7 +29,7 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ initAttendanceDefaults(); loadTeacherAttendance(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
@@ -38,8 +38,8 @@ function bindEvents(){
   safe('addRoomBtn',el=>el.onclick=addRoom); safe('backupDriveBtn',el=>el.onclick=backupToGoogleDrive); safe('downloadBackupBtn',el=>el.onclick=downloadBackupJson); safe('clearSystemBtn',el=>el.onclick=clearSystemData);
   safe('nonexistentRoomSelect',el=>el.onchange=loadNonexistentStudents);
   safe('loadNonexistentStudentsBtn',el=>el.onclick=loadNonexistentStudents);
-  safe('attendanceRoomSelect',el=>el.onchange=loadTeacherAttendance);
-  safe('attendanceDate',el=>el.onchange=loadTeacherAttendance);
+  safe('attendanceRoomSelect',el=>el.onchange=clearAttendanceLoadedView);
+  safe('attendanceDate',el=>el.onchange=clearAttendanceLoadedView);
   safe('loadAttendanceBtn',el=>el.onclick=loadTeacherAttendance);
   safe('deleteAttendanceDateBtn',el=>el.onclick=deleteAttendanceDate);
   safe('attendanceBarcodeFocusBtn',el=>el.onclick=focusAttendanceBarcode);
@@ -127,6 +127,20 @@ function setRoomOptions(items){
   ids.forEach(id=>{
     const el=$(id); if(!el) return;
     const old=el.value;
+
+    if(id==='attendanceRoomSelect'){
+      el.innerHTML='<option value="">— เลือกห้องก่อน —</option>';
+      roomList.forEach(r=>{
+        const o=document.createElement('option');
+        o.value=r.name;
+        o.textContent=r.name;
+        el.appendChild(o);
+      });
+      if(old && roomList.some(r=>r.name===old)) el.value=old;
+      else el.value='';
+      return;
+    }
+
     fillSelect(el,roomList,r=>r.name,r=>r.name);
     if(old && roomList.some(r=>r.name===old)) el.value=old;
   });
@@ -197,7 +211,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v37',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v38',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -931,12 +945,43 @@ function initAttendanceDefaults(){
     }
   });
 }
+
+function selectedAttendanceRoom(){
+  return String($('attendanceRoomSelect')?.value||'').trim();
+}
+function clearAttendanceLoadedView(){
+  attendanceStudents=[];
+  attendanceRows=[];
+  attendanceSession=null;
+
+  safe('attendancePresentCount',el=>el.textContent='0');
+  safe('attendanceLateCount',el=>el.textContent='0');
+  safe('attendanceLeaveCount',el=>el.textContent='0');
+  safe('attendanceAbsentCount',el=>el.textContent='0');
+
+  safe('attendanceTable',table=>{
+    const body=table.querySelector('tbody');
+    if(body) body.innerHTML='<tr><td colspan="5">กรุณาเลือกห้องและวันที่ แล้วกด “โหลดรายชื่อ”</td></tr>';
+  });
+
+  safe('attendanceScanStatus',el=>el.textContent='กรุณาเลือกห้องและกด “โหลดรายชื่อ” ก่อนเริ่มสแกน');
+  safe('attendanceQrPanel',el=>el.classList.add('hidden'));
+  safe('attendanceQrCanvas',el=>el.innerHTML='');
+  safe('attendanceSelfUrl',el=>el.value='');
+  safe('attendanceQrInfo',el=>el.textContent='');
+}
+function prepareAttendancePage(){
+  initAttendanceDefaults();
+  safe('attendanceRoomSelect',el=>el.value='');
+  clearAttendanceLoadedView();
+}
+
 async function loadTeacherAttendance(){
   if(!supabaseClient) return;
   initAttendanceDefaults();
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
   const date=$('attendanceDate')?.value || localDateISO();
-  if(!room) return toast('กรุณาเลือกห้อง');
+  if(!room) return toast('กรุณาเลือกห้องก่อน แล้วกด “โหลดรายชื่อ”');
 
   const {data:stu,error:stuErr}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
   if(stuErr) return toast(stuErr.message);
@@ -1005,7 +1050,8 @@ function renderAttendanceSummary(){
   safe('attendanceAbsentCount',el=>el.textContent=counts.absent);
 }
 async function setAttendanceStatus(studentId,status,source='teacher'){
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
+  if(!room) return toast('กรุณาเลือกห้องและโหลดรายชื่อก่อน');
   const date=$('attendanceDate')?.value || localDateISO();
   if(!['present','late','leave','absent'].includes(status)) status='absent';
   const checked=status==='absent' ? null : new Date().toISOString();
@@ -1027,7 +1073,7 @@ async function setAttendanceStatus(studentId,status,source='teacher'){
 async function deleteAttendanceDate(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
 
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
   const date=$('attendanceDate')?.value || localDateISO();
   if(!room || !date) return toast('กรุณาเลือกห้องและวันที่');
 
@@ -1118,7 +1164,8 @@ async function handleAttendanceBarcodeKeydown(e){
   $('attendanceBarcodeInput')?.focus();
 }
 async function markAttendanceByCode(code){
-  if(!attendanceStudents.length) await loadTeacherAttendance();
+  if(!selectedAttendanceRoom()) return toast('กรุณาเลือกห้องและกด “โหลดรายชื่อ” ก่อน');
+  if(!attendanceStudents.length) return toast('กรุณากด “โหลดรายชื่อ” ก่อนเริ่มสแกน');
   const clean=normalizeQR(String(code||'').trim());
   const student=attendanceStudents.find(s=>String(s.student_code)===String(clean));
   if(!student){
@@ -1142,8 +1189,9 @@ function randomAttendanceToken(){
 }
 async function openAttendanceSelfSession(){
   if(!supabaseClient) return;
-  await loadTeacherAttendance();
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
+  if(!room) return toast('กรุณาเลือกห้องและกด “โหลดรายชื่อ” ก่อน');
+  if(!attendanceStudents.length) return toast('กรุณากด “โหลดรายชื่อ” ก่อนแสดง QR เช็คชื่อ');
   const date=$('attendanceDate')?.value || localDateISO();
 
   // ปิดรอบเก่าของห้อง/วันที่ก่อน
@@ -1189,7 +1237,8 @@ async function openAttendanceSelfSession(){
 }
 async function closeAttendanceSelfSession(){
   if(!supabaseClient) return;
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
+  if(!room) return toast('กรุณาเลือกห้องก่อน');
   const date=$('attendanceDate')?.value || localDateISO();
   const {error}=await supabaseClient.from('attendance_sessions').update({active:false}).eq('room',room).eq('attendance_date',date).eq('active',true);
   if(error) return toast(error.message);
@@ -1262,7 +1311,8 @@ async function submitAttendanceSelfCheck(){
 async function loadAttendanceReport(){
   if(!supabaseClient) return;
   initAttendanceDefaults();
-  const room=currentRoom('attendanceRoomSelect');
+  const room=selectedAttendanceRoom();
+  if(!room) return toast('กรุณาเลือกห้องก่อนดูรายงาน');
   const from=$('attendanceReportFrom')?.value;
   const to=$('attendanceReportTo')?.value;
   if(!from || !to) return toast('กรุณาเลือกช่วงวันที่');
@@ -1302,7 +1352,7 @@ function renderAttendanceReport(){
   const table=$('attendanceReportTable'); if(!table) return;
   const rows=attendanceReportRows||[];
   const dates=rows._dates||[];
-  const room=rows._room||currentRoom('attendanceRoomSelect');
+  const room=rows._room||selectedAttendanceRoom();
   const from=rows._from||'', to=rows._to||'';
 
   const dailyHeaders=dates.map(d=>`<th class="attendance-date-head" title="${escapeHtml(d)}">${escapeHtml(formatAttendanceDateShort(d))}</th>`).join('');
