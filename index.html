@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v39-assignment-overview" />
+  <meta name="app-version" content="v40-score-attendance-link" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v39-assignment-overview" />
+  <link rel="stylesheet" href="styles.css?v=v40-score-attendance-link" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -46,6 +46,29 @@
           <div class="form-grid">
             <label>2. ห้องเรียน<select id="roomSelect"></select></label>
             <label>3. ชิ้นงาน<select id="assignmentSelect"></select></label>
+          </div>
+          <div id="scoreAttendanceLinkPanel" class="score-attendance-link-panel">
+            <div class="score-attendance-link-head">
+              <div>
+                <b>เชื่อมการตรวจงานกับเช็คชื่อ</b>
+                <span>เมื่อลงคะแนนงานนี้สำเร็จ ให้เช็คเข้าเรียนของวันที่เลือกเป็น “มา” ด้วยหรือไม่</span>
+              </div>
+              <div class="score-attendance-link-choice" role="group" aria-label="เลือกการเชื่อมเช็คชื่อ">
+                <button id="scoreAttendanceLinkOffBtn" type="button" class="score-attendance-choice off active">ไม่เชื่อม</button>
+                <button id="scoreAttendanceLinkOnBtn" type="button" class="score-attendance-choice on">เชื่อมเช็คชื่อ</button>
+              </div>
+            </div>
+            <div class="score-attendance-link-body">
+              <label>วันที่เช็คชื่อ
+                <input id="scoreAttendanceDate" type="date" />
+              </label>
+              <div id="scoreAttendanceLinkStatus" class="score-attendance-link-status">
+                ยังไม่เชื่อม — การตรวจงานจะไม่เปลี่ยนข้อมูลเช็คชื่อ
+              </div>
+            </div>
+            <p class="hint score-attendance-link-hint">
+              การเชื่อมมีผลเฉพาะงาน + ห้อง + วันที่ที่ยืนยันไว้ หากเปลี่ยนรายการ ระบบจะปิดการเชื่อมให้อัตโนมัติ
+            </p>
           </div>
           <div class="scan-mode"><span id="scanModeBadge">พร้อมสแกนนักเรียน</span><button id="startScanBtn">เปิดกล้องสแกน</button><button id="stopScanBtn" class="ghost">ปิดกล้อง</button></div>
           <div class="barcode-panel">
@@ -471,7 +494,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script src="./config.js?v=v39-assignment-overview"></script>
-  <script src="./app.js?v=v39-assignment-overview"></script>
+  <script src="./config.js?v=v40-score-attendance-link"></script>
+  <script src="./app.js?v=v40-score-attendance-link"></script>
 </body>
 </html>

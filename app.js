@@ -4,6 +4,11 @@ const cfg = window.APP_CONFIG || {};
 let supabaseClient = null;
 let assignments = [], students = [], managedStudents = [], roomList = [];
 let overviewAssignments = [];
+let scoreAttendanceLinkEnabled = false;
+let scoreAttendanceLinkAssignmentId = '';
+let scoreAttendanceLinkRoom = '';
+let scoreAttendanceLinkDate = '';
+let scoreAttendanceLinkedCount = 0;
 let scanState = 'student', selectedStudent = null, html5QrCode = null, lastText = '', lastAt = 0;
 let scanPeriod = 'pre';
 let keyboardScanBuffer = '', keyboardScanTimer = null, keyboardLastAt = 0;
@@ -30,8 +35,16 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } if(b.dataset.page==='assignmentOverviewPage' && supabaseClient){ loadAssignmentOverview(); } });
-  safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient){ prepareScoreAttendanceLink(); loadAssignments($('roomSelect')?.value); } if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } if(b.dataset.page==='assignmentOverviewPage' && supabaseClient){ loadAssignmentOverview(); } });
+  safe('roomSelect',el=>el.onchange=async()=>{
+    resetScoreAttendanceLink('เปลี่ยนห้อง');
+    await loadStudents();
+    await loadAssignments($('roomSelect')?.value);
+  }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value));
+  safe('assignmentSelect',el=>el.onchange=()=>resetScoreAttendanceLink('เปลี่ยนชิ้นงาน',true));
+  safe('scoreAttendanceDate',el=>el.onchange=()=>resetScoreAttendanceLink('เปลี่ยนวันที่',true));
+  safe('scoreAttendanceLinkOffBtn',el=>el.onclick=()=>setScoreAttendanceLink(false));
+  safe('scoreAttendanceLinkOnBtn',el=>el.onclick=()=>setScoreAttendanceLink(true)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('refreshAssignmentOverviewBtn',el=>el.onclick=loadAssignmentOverview); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
@@ -52,6 +65,120 @@ function bindEvents(){
   safe('exportAttendancePdfBtn',el=>el.onclick=exportAttendancePdf);
   safe('attendanceSelfSubmitBtn',el=>el.onclick=submitAttendanceSelfCheck);
   safe('confirmImportBtn',el=>el.onclick=importStudents); safe('downloadTemplateBtn',el=>el.onclick=downloadStudentTemplate); safe('scoreFileInput',el=>el.onchange=handleScoreFile); safe('previewScoreImportBtn',el=>el.onclick=previewImportScores); safe('confirmScoreImportBtn',el=>el.onclick=importScores); safe('downloadScoreTemplateBtn',el=>el.onclick=downloadScoreTemplate); safe('realRoomSelect',el=>el.onchange=loadRealScoreConfig); safe('loadRealScoreBtn',el=>el.onclick=loadRealScore); safe('exportRealExcelBtn',el=>el.onclick=exportRealExcel); safe('exportRealImageBtn',el=>el.onclick=exportRealImage);
+}
+
+
+// ===========================================
+// v40 ตรวจงาน + เชื่อมเช็คชื่อแบบเลือกได้
+// ===========================================
+function prepareScoreAttendanceLink(){
+  safe('scoreAttendanceDate',el=>{
+    el.value=localDateISO();
+  });
+  resetScoreAttendanceLink('',false);
+}
+function resetScoreAttendanceLink(reason='',showNotice=false){
+  const wasEnabled=scoreAttendanceLinkEnabled;
+  scoreAttendanceLinkEnabled=false;
+  scoreAttendanceLinkAssignmentId='';
+  scoreAttendanceLinkRoom='';
+  scoreAttendanceLinkDate='';
+  scoreAttendanceLinkedCount=0;
+  renderScoreAttendanceLink();
+  if(showNotice && wasEnabled && reason){
+    toast(`ปิดการเชื่อมเช็คชื่อแล้ว: ${reason}`);
+  }
+}
+function setScoreAttendanceLink(enabled){
+  if(!enabled){
+    resetScoreAttendanceLink();
+    toast('ตั้งค่า: ตรวจงานโดยไม่เชื่อมเช็คชื่อ');
+    return;
+  }
+  const assignmentId=String($('assignmentSelect')?.value||'').trim();
+  const room=String($('roomSelect')?.value||'').trim();
+  const date=String($('scoreAttendanceDate')?.value||'').trim();
+  const ass=(assignments||[]).find(a=>String(a.id)===assignmentId);
+  if(!room) return toast('กรุณาเลือกห้องก่อน');
+  if(!assignmentId || !ass) return toast('กรุณาเลือกชิ้นงานก่อน');
+  if(!date) return toast('กรุณาเลือกวันที่เช็คชื่อ');
+  scoreAttendanceLinkEnabled=true;
+  scoreAttendanceLinkAssignmentId=assignmentId;
+  scoreAttendanceLinkRoom=room;
+  scoreAttendanceLinkDate=date;
+  scoreAttendanceLinkedCount=0;
+  renderScoreAttendanceLink();
+  toast(`เชื่อมงาน “${ass.title}” กับเช็คชื่อวันที่ ${date} แล้ว`);
+}
+function renderScoreAttendanceLink(){
+  const onBtn=$('scoreAttendanceLinkOnBtn');
+  const offBtn=$('scoreAttendanceLinkOffBtn');
+  onBtn?.classList.toggle('active',scoreAttendanceLinkEnabled);
+  offBtn?.classList.toggle('active',!scoreAttendanceLinkEnabled);
+  const panel=$('scoreAttendanceLinkPanel');
+  panel?.classList.toggle('linked',scoreAttendanceLinkEnabled);
+  const status=$('scoreAttendanceLinkStatus');
+  if(!status) return;
+  if(!scoreAttendanceLinkEnabled){
+    status.innerHTML='<b>ไม่เชื่อม</b> — การตรวจงานจะไม่เปลี่ยนข้อมูลเช็คชื่อ';
+    return;
+  }
+  const ass=(assignments||[]).find(a=>String(a.id)===scoreAttendanceLinkAssignmentId);
+  status.innerHTML=`
+    <b>กำลังเชื่อม</b>
+    <span>งาน: ${escapeHtml(ass?.title||'-')}</span>
+    <span>ห้อง: ${escapeHtml(scoreAttendanceLinkRoom)}</span>
+    <span>วันที่: ${escapeHtml(scoreAttendanceLinkDate)}</span>
+    <span>เช็คเป็นมาแล้ว: <b>${scoreAttendanceLinkedCount}</b> คน</span>
+  `;
+}
+async function linkSavedScoreToAttendance(stu,ass){
+  if(!scoreAttendanceLinkEnabled) return {linked:false,kind:'disabled'};
+  const currentAssignmentId=String($('assignmentSelect')?.value||'');
+  const currentRoom=String($('roomSelect')?.value||'');
+  const currentDate=String($('scoreAttendanceDate')?.value||'');
+  if(currentAssignmentId!==scoreAttendanceLinkAssignmentId || currentRoom!==scoreAttendanceLinkRoom || currentDate!==scoreAttendanceLinkDate){
+    resetScoreAttendanceLink();
+    toast('ปิดการเชื่อมเช็คชื่อแล้ว เพราะงาน/ห้อง/วันที่เปลี่ยน');
+    return {linked:false,kind:'mismatch'};
+  }
+  if(!stu || isNonexistentStudent(stu)){
+    return {linked:false,kind:'nonexistent',label:'ไม่มีตัวตน'};
+  }
+  try{
+    const {data:existing,error:findError}=await supabaseClient
+      .from('attendance')
+      .select('id,status,room,attendance_date,checked_at')
+      .eq('student_id',stu.id)
+      .eq('attendance_date',scoreAttendanceLinkDate)
+      .maybeSingle();
+    if(findError) throw findError;
+    if(existing && ['present','late','leave'].includes(existing.status)){
+      return {linked:false,kind:'preserved',label:attendanceStatusLabel(existing.status)};
+    }
+    const payload={
+      student_id:stu.id,
+      room:scoreAttendanceLinkRoom,
+      attendance_date:scoreAttendanceLinkDate,
+      status:'present',
+      source:'teacher',
+      checked_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+    let result;
+    if(existing?.id){
+      result=await supabaseClient.from('attendance').update(payload).eq('id',existing.id);
+    }else{
+      result=await supabaseClient.from('attendance').insert(payload);
+    }
+    if(result.error) throw result.error;
+    scoreAttendanceLinkedCount++;
+    renderScoreAttendanceLink();
+    return {linked:true,kind:'present',label:'มา'};
+  }catch(e){
+    console.error('score-attendance link error',e);
+    return {linked:false,kind:'error',error:e};
+  }
 }
 
 function focusBarcodeInput(){
@@ -113,6 +240,7 @@ async function init(){
     await withTimeout((async()=>{ await loadRooms(); await Promise.all([loadAssignments(currentRoom('roomSelect')), loadStudents(), loadManagedStudents()]); })(),15000,'เชื่อมต่อ Supabase ไม่สำเร็จใน 15 วินาที');
     setStatus('เชื่อมต่อ Supabase แล้ว');
     initAttendanceDefaults();
+    prepareScoreAttendanceLink();
     await initAttendanceSelfMode();
     toast('ระบบพร้อมใช้งาน');
   }catch(e){ setStatus('เชื่อมต่อไม่สำเร็จ: '+e.message, false); toast('เช็ค config.js / RLS / อินเทอร์เน็ต'); }
@@ -212,7 +340,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v39',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v40',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -384,6 +512,7 @@ function periodLabel(period){
   return {pre:'ก่อนกลางภาค',mid:'กลางภาค',post:'หลังกลางภาค',final:'ปลายภาค'}[period||'pre'] || 'ก่อนกลางภาค';
 }
 function setScanPeriod(period){
+  resetScoreAttendanceLink('เปลี่ยนช่วงคะแนน',true);
   scanPeriod = ['pre','mid','post','final'].includes(period) ? period : 'pre';
   document.querySelectorAll('[data-scan-period]').forEach(btn=>{
     const active=btn.dataset.scanPeriod===scanPeriod;
@@ -542,7 +671,27 @@ async function saveScore(studentCode, score){
   }
   const {error}=await supabaseClient.from('scores').upsert({student_id:stu.id,assignment_id:assignmentId,score,updated_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'});
   if(error){ toast(error.message); return {saved:false}; }
-  safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>`); toast(existing && oldScore!==0 ? 'บันทึกทับคะแนนเดิมแล้ว' : 'บันทึกคะแนนอัตโนมัติแล้ว'); return {saved:true};
+
+  const attendanceLink=await linkSavedScoreToAttendance(stu,ass);
+  let attendanceNote='';
+  if(attendanceLink.linked){
+    attendanceNote=' <span class="score-attendance-saved">• เช็คชื่อ: มา</span>';
+  }else if(attendanceLink.kind==='preserved'){
+    attendanceNote=` <span class="score-attendance-preserved">• คงสถานะเช็คชื่อเดิม: ${escapeHtml(attendanceLink.label)}</span>`;
+  }else if(attendanceLink.kind==='nonexistent'){
+    attendanceNote=' <span class="score-attendance-preserved">• ไม่เช็คชื่อ: ไม่มีตัวตน</span>';
+  }else if(attendanceLink.kind==='error'){
+    attendanceNote=' <span class="score-attendance-error">• คะแนนบันทึกแล้ว แต่เช็คชื่อไม่สำเร็จ</span>';
+  }
+  safe('lastSaved',el=>el.innerHTML=`บันทึกแล้ว: <b>${escapeHtml(stu.full_name)}</b> | ${escapeHtml(ass?.title||'')} = <b>${escapeHtml(score)}</b>${attendanceNote}`);
+  if(attendanceLink.kind==='error'){
+    toast('บันทึกคะแนนแล้ว แต่เช็คชื่อไม่สำเร็จ');
+  }else if(attendanceLink.linked){
+    toast('บันทึกคะแนน + เช็คชื่อเป็น “มา” แล้ว');
+  }else{
+    toast(existing && oldScore!==0 ? 'บันทึกทับคะแนนเดิมแล้ว' : 'บันทึกคะแนนอัตโนมัติแล้ว');
+  }
+  return {saved:true,attendanceLink};
 }
 async function manualSave(){ const code=$('manualCode')?.value.trim(); const score=Number($('manualScore')?.value); if(!code||Number.isNaN(score)) return toast('กรอกข้อมูล Manual ให้ครบ'); await saveScore(code,score); }
 // ===== v20: โหลดคะแนนครบทุกแถวแบบ pagination =====

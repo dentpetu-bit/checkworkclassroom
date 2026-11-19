@@ -321,3 +321,17 @@
 .assignment-overview-no-work{padding:8px 5px;color:#64748b;text-align:center;font-size:11px}
 .assignment-overview-empty{width:100%;min-height:180px;display:grid;place-items:center;color:#9fb3ce;border:1px dashed rgba(255,255,255,.15);border-radius:18px}
 @media(max-width:900px){.assignment-room-column{width:285px;min-width:285px}}
+
+
+/* =========================================================
+   v40 ตรวจงานเชื่อมเช็คชื่อแบบเลือกได้
+   ========================================================= */
+.score-attendance-link-panel{margin:14px 0 4px;padding:15px;border-radius:20px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.10);transition:border-color .18s ease,background .18s ease,box-shadow .18s ease}
+.score-attendance-link-panel.linked{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.42);box-shadow:0 0 0 3px rgba(34,197,94,.06)}
+.score-attendance-link-head{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.score-attendance-link-head>div:first-child{display:grid;gap:3px}
+.score-attendance-link-head b{font-size:16px;color:#f8fafc}.score-attendance-link-head span{color:#9fb3ce;font-size:12px;font-weight:600}
+.score-attendance-link-choice{display:flex;gap:7px;flex-shrink:0}.score-attendance-choice{padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);box-shadow:none;opacity:.72;font-size:12px}.score-attendance-choice.active{opacity:1}.score-attendance-choice.off.active{background:#475569;border-color:#94a3b8}.score-attendance-choice.on.active{background:#16a34a;border-color:#86efac;box-shadow:0 8px 20px rgba(22,163,74,.18)}
+.score-attendance-link-body{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:end;margin-top:12px}.score-attendance-link-status{min-height:50px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.16);color:#cbd5e1;font-size:12px}.score-attendance-link-panel.linked .score-attendance-link-status{background:rgba(22,163,74,.10);color:#dcfce7}.score-attendance-link-status>span{padding:4px 7px;border-radius:8px;background:rgba(255,255,255,.07)}
+.score-attendance-link-hint{margin:9px 2px 0;font-size:11px}.score-attendance-saved{color:#22c55e;font-weight:900}.score-attendance-preserved{color:#fbbf24;font-weight:800}.score-attendance-error{color:#f87171;font-weight:900}
+@media(max-width:900px){.score-attendance-link-head{align-items:flex-start;flex-direction:column}.score-attendance-link-choice{width:100%}.score-attendance-choice{flex:1}.score-attendance-link-body{grid-template-columns:1fr}}
