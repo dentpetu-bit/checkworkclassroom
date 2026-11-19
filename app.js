@@ -35,7 +35,7 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient){ prepareScoreAttendanceLink(); loadAssignments($('roomSelect')?.value); } if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } if(b.dataset.page==='assignmentOverviewPage' && supabaseClient){ loadAssignmentOverview(); } });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient){ prepareScoreAttendanceLink(); loadAssignments($('roomSelect')?.value); } if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } if(b.dataset.page==='assignmentOverviewPage' && supabaseClient){ loadAssignmentOverview(); } if(b.dataset.page==='reportPage' && supabaseClient){ prepareReportPage(); } });
   safe('roomSelect',el=>el.onchange=async()=>{
     resetScoreAttendanceLink('เปลี่ยนห้อง');
     await loadStudents();
@@ -44,7 +44,7 @@ function bindEvents(){
   safe('assignmentSelect',el=>el.onchange=()=>resetScoreAttendanceLink('เปลี่ยนชิ้นงาน',true));
   safe('scoreAttendanceDate',el=>el.onchange=()=>resetScoreAttendanceLink('เปลี่ยนวันที่',true));
   safe('scoreAttendanceLinkOffBtn',el=>el.onclick=()=>setScoreAttendanceLink(false));
-  safe('scoreAttendanceLinkOnBtn',el=>el.onclick=()=>setScoreAttendanceLink(true)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
+  safe('scoreAttendanceLinkOnBtn',el=>el.onclick=()=>setScoreAttendanceLink(true)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=clearReportSelectionView); safe('reportPeriodSelect',el=>el.onchange=clearReportSelectionView); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
   safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('refreshAssignmentOverviewBtn',el=>el.onclick=loadAssignmentOverview); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
@@ -340,7 +340,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v40',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v41',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -475,6 +475,23 @@ function renderAssignmentOverview(){
             <span>${list.length} งาน • ${round2(periodTotal)} คะแนน</span>
           </div>
           <div class="assignment-overview-period-list">${items}</div>
+          <div class="assignment-overview-add-area">
+            <button type="button"
+              class="assignment-overview-add-btn"
+              data-overview-add-toggle
+              data-room="${escapeHtml(room)}"
+              data-period="${p.key}">+ เพิ่มชิ้นงาน</button>
+            <div class="assignment-overview-quick-form hidden">
+              <input class="overview-quick-title" placeholder="ชื่อชิ้นงาน เช่น ใบงานที่ 1" />
+              <input class="overview-quick-max" type="number" min="0" step="0.01" value="10" placeholder="คะแนนเต็ม" />
+              <div class="assignment-overview-quick-actions">
+                <button type="button" class="mini" data-overview-save
+                  data-room="${escapeHtml(room)}"
+                  data-period="${p.key}">บันทึก</button>
+                <button type="button" class="mini ghost" data-overview-cancel>ยกเลิก</button>
+              </div>
+            </div>
+          </div>
         </div>
       `;
     }).join('');
@@ -493,6 +510,81 @@ function renderAssignmentOverview(){
       </article>
     `;
   }).join('');
+
+  document.querySelectorAll('[data-overview-add-toggle]').forEach(btn=>{
+    btn.onclick=()=>{
+      const periodBox=btn.closest('.assignment-overview-period');
+      const form=periodBox?.querySelector('.assignment-overview-quick-form');
+      if(!form) return;
+      const willOpen=form.classList.contains('hidden');
+      document.querySelectorAll('.assignment-overview-quick-form').forEach(x=>x.classList.add('hidden'));
+      document.querySelectorAll('[data-overview-add-toggle]').forEach(x=>x.textContent='+ เพิ่มชิ้นงาน');
+      if(willOpen){
+        form.classList.remove('hidden');
+        btn.textContent='ปิดช่องเพิ่มงาน';
+        form.querySelector('.overview-quick-title')?.focus();
+      }
+    };
+  });
+
+  document.querySelectorAll('[data-overview-cancel]').forEach(btn=>{
+    btn.onclick=()=>{
+      const periodBox=btn.closest('.assignment-overview-period');
+      periodBox?.querySelector('.assignment-overview-quick-form')?.classList.add('hidden');
+      const toggle=periodBox?.querySelector('[data-overview-add-toggle]');
+      if(toggle) toggle.textContent='+ เพิ่มชิ้นงาน';
+    };
+  });
+
+  document.querySelectorAll('[data-overview-save]').forEach(btn=>{
+    btn.onclick=()=>addAssignmentFromOverview(btn);
+  });
+}
+
+async function addAssignmentFromOverview(btn){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const room=String(btn?.dataset.room||'').trim();
+  const period=String(btn?.dataset.period||'pre').trim();
+  const form=btn?.closest('.assignment-overview-quick-form');
+  const title=String(form?.querySelector('.overview-quick-title')?.value||'').trim();
+  const max=Number(form?.querySelector('.overview-quick-max')?.value);
+
+  if(!room) return toast('ไม่พบข้อมูลห้อง');
+  if(!['pre','mid','post','final'].includes(period)) return toast('ช่วงคะแนนไม่ถูกต้อง');
+  if(!title) return toast('กรุณากรอกชื่อชิ้นงาน');
+  if(Number.isNaN(max) || max<0) return toast('คะแนนเต็มต้องเป็นตัวเลข 0 ขึ้นไป');
+
+  btn.disabled=true;
+  try{
+    const {data:orders,error:orderError}=await supabaseClient
+      .from('assignments')
+      .select('sort_order')
+      .eq('room',room)
+      .eq('period',period)
+      .order('sort_order',{ascending:false})
+      .limit(1);
+
+    if(orderError) throw orderError;
+    const nextOrder=((orders&&orders[0]&&Number(orders[0].sort_order))||0)+1;
+
+    const {error}=await supabaseClient
+      .from('assignments')
+      .insert({room,title,max_score:max,period,sort_order:nextOrder});
+
+    if(error) throw error;
+
+    toast(`เพิ่มชิ้นงาน${periodLabel(period)} ห้อง ${room} แล้ว`);
+    await loadAssignmentOverview();
+
+    // ถ้าห้องที่เพิ่มตรงกับห้องหน้าสแกน ให้ข้อมูลรายการงานพร้อมใช้เมื่อกลับไปหน้าสแกน
+    if($('roomSelect')?.value===room){
+      await loadAssignments(room);
+    }
+  }catch(e){
+    toast('เพิ่มชิ้นงานไม่สำเร็จ: '+e.message);
+  }finally{
+    btn.disabled=false;
+  }
 }
 
 async function loadAssignments(roomArg){
@@ -726,32 +818,89 @@ async function fetchAllScores(studentIds, assignmentIds){
   return allRows;
 }
 
+function selectedReportPeriod(){
+  const value=$('reportPeriodSelect')?.value || 'pre';
+  return ['pre','mid','post','final','all'].includes(value) ? value : 'pre';
+}
+function setReportPeriodVisibility(period){
+  const map={
+    pre:'reportPreBlock',
+    mid:'reportMidBlock',
+    post:'reportPostBlock',
+    final:'reportFinalBlock'
+  };
+  Object.entries(map).forEach(([key,id])=>{
+    safe(id,el=>el.classList.toggle('hidden',period!=='all' && period!==key));
+  });
+}
+function clearReportSelectionView(){
+  ['reportPreBlock','reportMidBlock','reportPostBlock','reportFinalBlock'].forEach(id=>safe(id,el=>el.classList.add('hidden')));
+  safe('reportSelectionHint',el=>el.textContent='เลือกห้องและช่วงคะแนน แล้วกด “แสดงข้อมูล”');
+}
+function prepareReportPage(){
+  clearReportSelectionView();
+}
 async function loadReport(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=$('reportRoomSelect')?.value;
-  const {data:roomAssignments,error:e0}=await supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true});
+  const selectedPeriod=selectedReportPeriod();
+  if(!room) return toast('กรุณาเลือกห้อง');
+
+  safe('reportSelectionHint',el=>el.textContent='กำลังโหลดข้อมูล...');
+
+  let assignmentQuery=supabaseClient
+    .from('assignments')
+    .select('*')
+    .eq('room',room)
+    .order('sort_order',{ascending:true});
+
+  if(selectedPeriod!=='all'){
+    assignmentQuery=assignmentQuery.eq('period',selectedPeriod);
+  }
+
+  const {data:roomAssignments,error:e0}=await assignmentQuery;
   if(e0) return toast(e0.message);
-  const {data:stu,error:e1}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
+
+  const {data:stu,error:e1}=await supabaseClient
+    .from('students')
+    .select('*')
+    .eq('room',room)
+    .order('number',{ascending:true});
   if(e1) return toast(e1.message);
+
   const ids=(stu||[]).map(s=>s.id);
   const assignmentIds=(roomAssignments||[]).map(a=>a.id);
   let scoreRows=[];
-  try{ scoreRows=await fetchAllScores(ids, assignmentIds); }
-  catch(error){ return toast(error.message); }
-  const scoreMap={}; scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
-  renderReportPeriod('pre', roomAssignments||[], stu||[], scoreMap);
-  renderReportPeriod('mid', roomAssignments||[], stu||[], scoreMap);
-  renderReportPeriod('post', roomAssignments||[], stu||[], scoreMap);
-  renderReportPeriod('final', roomAssignments||[], stu||[], scoreMap);
+  try{
+    scoreRows=await fetchAllScores(ids,assignmentIds);
+  }catch(error){
+    return toast(error.message);
+  }
+
+  const scoreMap={};
+  scoreRows.forEach(r=>scoreMap[`${r.student_id}_${r.assignment_id}`]=r.score);
+
+  if(selectedPeriod==='all'){
+    ['pre','mid','post','final'].forEach(period=>{
+      renderReportPeriod(period,roomAssignments||[],stu||[],scoreMap);
+    });
+  }else{
+    renderReportPeriod(selectedPeriod,roomAssignments||[],stu||[],scoreMap);
+  }
+
+  setReportPeriodVisibility(selectedPeriod);
   bindReportScoreInputs();
-  toast('โหลดรายงานครบ 4 ช่วงแล้ว');
+
+  const label=selectedPeriod==='all' ? 'ภาพรวมทั้งหมด' : reportPeriodInfo(selectedPeriod).label;
+  safe('reportSelectionHint',el=>el.innerHTML=`กำลังแสดง: <b>ห้อง ${escapeHtml(room)}</b> • <b>${escapeHtml(label)}</b>`);
+  toast(`แสดงรายงาน ${label} ห้อง ${room} แล้ว`);
 }
 function reportPeriodInfo(period){
   const map={
-    pre:{label:'ก่อนกลางภาค', tableId:'reportPreTable', summaryId:'reportPreSummary', captureId:'reportPreCapture'},
-    mid:{label:'กลางภาค', tableId:'reportMidTable', summaryId:'reportMidSummary', captureId:'reportMidCapture'},
-    post:{label:'หลังกลางภาค', tableId:'reportPostTable', summaryId:'reportPostSummary', captureId:'reportPostCapture'},
-    final:{label:'ปลายภาค', tableId:'reportFinalTable', summaryId:'reportFinalSummary', captureId:'reportFinalCapture'}
+    pre:{label:'ก่อนกลางภาค', blockId:'reportPreBlock', tableId:'reportPreTable', summaryId:'reportPreSummary', captureId:'reportPreCapture'},
+    mid:{label:'กลางภาค', blockId:'reportMidBlock', tableId:'reportMidTable', summaryId:'reportMidSummary', captureId:'reportMidCapture'},
+    post:{label:'หลังกลางภาค', blockId:'reportPostBlock', tableId:'reportPostTable', summaryId:'reportPostSummary', captureId:'reportPostCapture'},
+    final:{label:'ปลายภาค', blockId:'reportFinalBlock', tableId:'reportFinalTable', summaryId:'reportFinalSummary', captureId:'reportFinalCapture'}
   };
   return map[period] || map.pre;
 }

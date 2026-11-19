@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v40-score-attendance-link" />
+  <meta name="app-version" content="v41-overview-quickadd-report-filter" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v40-score-attendance-link" />
+  <link rel="stylesheet" href="styles.css?v=v41-overview-quickadd-report-filter" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -346,7 +346,28 @@
 
     <section id="reportPage" class="page">
       <div class="card">
-        <div class="report-head"><div><h2>รายงานภาพรวมรายห้อง</h2><p>แยกตารางก่อนกลางภาค / กลางภาค / หลังกลางภาค / ปลายภาค ช่อง 0 สีแดง และแก้คะแนนในตารางได้ทันที</p></div><div class="actions"><select id="reportRoomSelect"></select><button id="loadReportBtn">โหลดรายงาน</button></div></div>
+        <div class="report-head report-filter-head">
+          <div>
+            <h2>รายงาน / นำเข้าคะแนน</h2>
+            <p>เลือกห้องและช่วงคะแนนที่ต้องการ แล้วกด “แสดงข้อมูล” ระบบจะแสดงเฉพาะส่วนที่เลือก หรือเลือก “ภาพรวมทั้งหมด” เพื่อดูครบ 4 ช่วง</p>
+          </div>
+          <div class="actions report-filter-actions">
+            <label class="report-filter-field">ห้องเรียน
+              <select id="reportRoomSelect"></select>
+            </label>
+            <label class="report-filter-field">ช่วงคะแนน
+              <select id="reportPeriodSelect">
+                <option value="pre">ก่อนกลางภาค</option>
+                <option value="mid">กลางภาค</option>
+                <option value="post">หลังกลางภาค</option>
+                <option value="final">ปลายภาค</option>
+                <option value="all">ภาพรวมทั้งหมด</option>
+              </select>
+            </label>
+            <button id="loadReportBtn" type="button">แสดงข้อมูล</button>
+          </div>
+        </div>
+        <div id="reportSelectionHint" class="report-selection-hint">เลือกห้องและช่วงคะแนน แล้วกด “แสดงข้อมูล”</div>
         <div class="import-score-panel">
           <div class="section-head">
             <div><h2>นำเข้าคะแนนจากภายนอก</h2><p class="hint">โหลด Template ของห้องนี้ → กรอกคะแนนจากไฟล์เดิม → อัปโหลดกลับเข้าระบบ</p></div>
@@ -367,19 +388,19 @@
           <p id="scoreImportSummary" class="hint">ยังไม่มีข้อมูลคะแนนนำเข้า</p>
           <div class="table-wrap compact"><table id="scoreImportPreview"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div class="report-period-block" id="reportPreBlock">
+        <div class="report-period-block hidden" id="reportPreBlock">
           <div class="section-head"><div><h2>คะแนนก่อนกลางภาค</h2><p id="reportPreSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPreExcelBtn" class="ghost">Excel ก่อนกลางภาค</button><button id="exportPreImageBtn" class="ghost">ภาพ PNG ก่อนกลางภาค</button></div></div>
           <div id="reportPreCapture" class="table-wrap"><table id="reportPreTable"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div class="report-period-block" id="reportMidBlock">
+        <div class="report-period-block hidden" id="reportMidBlock">
           <div class="section-head"><div><h2>คะแนนกลางภาค</h2><p id="reportMidSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportMidExcelBtn" class="ghost">Excel กลางภาค</button><button id="exportMidImageBtn" class="ghost">ภาพ PNG กลางภาค</button></div></div>
           <div id="reportMidCapture" class="table-wrap"><table id="reportMidTable"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div class="report-period-block" id="reportPostBlock">
+        <div class="report-period-block hidden" id="reportPostBlock">
           <div class="section-head"><div><h2>คะแนนหลังกลางภาค</h2><p id="reportPostSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportPostExcelBtn" class="ghost">Excel หลังกลางภาค</button><button id="exportPostImageBtn" class="ghost">ภาพ PNG หลังกลางภาค</button></div></div>
           <div id="reportPostCapture" class="table-wrap"><table id="reportPostTable"><thead></thead><tbody></tbody></table></div>
         </div>
-        <div class="report-period-block" id="reportFinalBlock">
+        <div class="report-period-block hidden" id="reportFinalBlock">
           <div class="section-head"><div><h2>คะแนนปลายภาค</h2><p id="reportFinalSummary" class="hint">ยังไม่ได้โหลดข้อมูล</p></div><div class="actions"><button id="exportFinalExcelBtn" class="ghost">Excel ปลายภาค</button><button id="exportFinalImageBtn" class="ghost">ภาพ PNG ปลายภาค</button></div></div>
           <div id="reportFinalCapture" class="table-wrap"><table id="reportFinalTable"><thead></thead><tbody></tbody></table></div>
         </div>
@@ -494,7 +515,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script src="./config.js?v=v40-score-attendance-link"></script>
-  <script src="./app.js?v=v40-score-attendance-link"></script>
+  <script src="./config.js?v=v41-overview-quickadd-report-filter"></script>
+  <script src="./app.js?v=v41-overview-quickadd-report-filter"></script>
 </body>
 </html>
