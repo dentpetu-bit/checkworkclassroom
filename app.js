@@ -3,6 +3,7 @@
 const cfg = window.APP_CONFIG || {};
 let supabaseClient = null;
 let assignments = [], students = [], managedStudents = [], roomList = [];
+let overviewAssignments = [];
 let scanState = 'student', selectedStudent = null, html5QrCode = null, lastText = '', lastAt = 0;
 let scanPeriod = 'pre';
 let keyboardScanBuffer = '', keyboardScanTimer = null, keyboardLastAt = 0;
@@ -29,10 +30,10 @@ window.addEventListener('error', e => { setStatus('JavaScript error: '+(e.messag
 window.addEventListener('unhandledrejection', e => { setStatus('Supabase/Network error: '+(e.reason?.message||e.reason||'ไม่ทราบสาเหตุ'), false); console.error(e.reason); });
 
 function bindEvents(){
-  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } });
+  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav,.page').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const page=$(b.dataset.page); if(page) page.classList.add('active'); if(b.dataset.page==='scorePage' && supabaseClient) loadAssignments($('roomSelect')?.value); if(b.dataset.page==='workPage' && supabaseClient) loadAssignments($('workRoomSelect')?.value); if(b.dataset.page==='studentPage' && supabaseClient) loadManagedStudents(); if(b.dataset.page==='realScorePage' && supabaseClient) loadRealScoreConfig(); if(b.dataset.page==='systemPage' && supabaseClient){ loadRooms(); renderRoomManager(); } if(b.dataset.page==='attendancePage' && supabaseClient){ prepareAttendancePage(); } if(b.dataset.page==='nonexistentPage' && supabaseClient){ loadNonexistentStudents(); } if(b.dataset.page==='assignmentOverviewPage' && supabaseClient){ loadAssignmentOverview(); } });
   safe('roomSelect',el=>el.onchange=async()=>{ await loadStudents(); await loadAssignments($('roomSelect')?.value); }); safe('workRoomSelect',el=>el.onchange=()=>loadAssignments(el.value)); safe('workPeriodSelect',el=>el.onchange=()=>{}); safe('reportRoomSelect',el=>el.onchange=()=>{}); safe('startScanBtn',el=>el.onclick=startScan); safe('stopScanBtn',el=>el.onclick=stopScan); safe('manualSaveBtn',el=>el.onclick=manualSave); safe('barcodeFocusBtn',el=>el.onclick=focusBarcodeInput); safe('barcodeInput',el=>{ el.onkeydown=handleBarcodeInputKeydown; el.onfocus=()=>el.classList.add('scanner-ready'); el.onblur=()=>el.classList.remove('scanner-ready'); });
   document.querySelectorAll('[data-scan-period]').forEach(b=>b.onclick=()=>setScanPeriod(b.dataset.scanPeriod));
-  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
+  safe('addAssignmentBtn',el=>el.onclick=addAssignment); safe('refreshAssignmentOverviewBtn',el=>el.onclick=loadAssignmentOverview); safe('loadReportBtn',el=>el.onclick=loadReport); safe('exportPreExcelBtn',el=>el.onclick=()=>exportReportExcel('pre')); safe('exportMidExcelBtn',el=>el.onclick=()=>exportReportExcel('mid')); safe('exportPostExcelBtn',el=>el.onclick=()=>exportReportExcel('post')); safe('exportFinalExcelBtn',el=>el.onclick=()=>exportReportExcel('final')); safe('exportPreImageBtn',el=>el.onclick=()=>exportReportImage('pre')); safe('exportMidImageBtn',el=>el.onclick=()=>exportReportImage('mid')); safe('exportPostImageBtn',el=>el.onclick=()=>exportReportImage('post')); safe('exportFinalImageBtn',el=>el.onclick=()=>exportReportImage('final'));
   safe('studentRoomSelect',el=>el.onchange=loadManagedStudents); safe('studentSearchInput',el=>el.oninput=renderStudentTable); safe('clearStudentFormBtn',el=>el.onclick=clearStudentForm);
   safe('studentForm',el=>el.onsubmit=saveStudentForm); safe('studentFileInput',el=>el.onchange=handleStudentFile); safe('previewImportBtn',el=>el.onclick=previewImportStudents);
   safe('addRoomBtn',el=>el.onclick=addRoom); safe('backupDriveBtn',el=>el.onclick=backupToGoogleDrive); safe('downloadBackupBtn',el=>el.onclick=downloadBackupJson); safe('clearSystemBtn',el=>el.onclick=clearSystemData);
@@ -211,7 +212,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v38',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v39',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -256,6 +257,114 @@ async function clearSystemData(){
   ['reportPreTable','reportMidTable','reportPostTable','reportFinalTable','realScoreTable'].forEach(id=>safe(id,t=>{t.querySelector('thead').innerHTML='';t.querySelector('tbody').innerHTML='';}));
   safe('backupStatus',el=>el.textContent='ล้างข้อมูลนักเรียน ชิ้นงาน และคะแนนเรียบร้อยแล้ว (คงรายชื่อห้องไว้)');
   toast('ล้างข้อมูลทั้งระบบเรียบร้อยแล้ว');
+}
+
+
+// ===========================================
+// v39 ภาพรวมชิ้นงานทุกห้อง
+// ===========================================
+async function loadAssignmentOverview(){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+
+  safe('assignmentOverviewSummary',el=>el.textContent='กำลังโหลดงานทุกห้อง...');
+  safe('assignmentOverviewGrid',el=>el.innerHTML='<div class="assignment-overview-empty">กำลังโหลดข้อมูล...</div>');
+
+  const {data,error}=await supabaseClient
+    .from('assignments')
+    .select('*')
+    .order('room',{ascending:true})
+    .order('period',{ascending:true})
+    .order('sort_order',{ascending:true});
+
+  if(error){
+    safe('assignmentOverviewSummary',el=>el.textContent='โหลดภาพรวมไม่สำเร็จ');
+    safe('assignmentOverviewGrid',el=>el.innerHTML='<div class="assignment-overview-empty">ไม่สามารถโหลดข้อมูลได้</div>');
+    return toast(error.message);
+  }
+
+  overviewAssignments=data||[];
+  renderAssignmentOverview();
+}
+function assignmentOverviewPeriods(){
+  return [
+    {key:'pre',label:'ก่อนกลางภาค',className:'pre'},
+    {key:'mid',label:'กลางภาค',className:'mid'},
+    {key:'post',label:'หลังกลางภาค',className:'post'},
+    {key:'final',label:'ปลายภาค',className:'final'}
+  ];
+}
+function renderAssignmentOverview(){
+  const box=$('assignmentOverviewGrid');
+  if(!box) return;
+
+  const knownRooms=(roomList||[]).map(r=>r.name).filter(Boolean);
+  const dataRooms=[...new Set((overviewAssignments||[]).map(a=>String(a.room||'').trim()).filter(Boolean))];
+  const rooms=[...knownRooms,...dataRooms.filter(name=>!knownRooms.includes(name))];
+
+  const totalAssignments=(overviewAssignments||[]).length;
+  const totalMax=(overviewAssignments||[]).reduce((sum,a)=>sum+(Number(a.max_score)||0),0);
+  const roomsWithWork=rooms.filter(room=>(overviewAssignments||[]).some(a=>String(a.room||'')===room)).length;
+
+  safe('assignmentOverviewSummary',el=>{
+    el.innerHTML=`
+      <span><b>${rooms.length}</b> ห้องในระบบ</span>
+      <span><b>${roomsWithWork}</b> ห้องที่มีชิ้นงาน</span>
+      <span><b>${totalAssignments}</b> งานทั้งหมด</span>
+      <span><b>${round2(totalMax)}</b> คะแนนเต็มรวมทุกงาน</span>
+    `;
+  });
+
+  if(!rooms.length){
+    box.innerHTML='<div class="assignment-overview-empty">ยังไม่มีห้องเรียนในระบบ</div>';
+    return;
+  }
+
+  const periods=assignmentOverviewPeriods();
+  box.innerHTML=rooms.map(room=>{
+    const roomAssignments=(overviewAssignments||[]).filter(a=>String(a.room||'')===room);
+    const roomTotal=roomAssignments.reduce((sum,a)=>sum+(Number(a.max_score)||0),0);
+
+    const periodHtml=periods.map(p=>{
+      const list=roomAssignments
+        .filter(a=>(a.period||'pre')===p.key)
+        .sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+      const periodTotal=list.reduce((sum,a)=>sum+(Number(a.max_score)||0),0);
+
+      const items=list.map((a,idx)=>`
+        <div class="assignment-overview-item">
+          <div class="assignment-overview-item-no">${periodWorkNo(a,idx,list)}</div>
+          <div class="assignment-overview-item-body">
+            <b>${escapeHtml(a.title||'-')}</b>
+            <span>${escapeHtml(a.max_score)} คะแนน</span>
+          </div>
+        </div>
+      `).join('') || '<div class="assignment-overview-no-work">— ยังไม่มีงาน —</div>';
+
+      return `
+        <div class="assignment-overview-period ${p.className}">
+          <div class="assignment-overview-period-head">
+            <b>${p.label}</b>
+            <span>${list.length} งาน • ${round2(periodTotal)} คะแนน</span>
+          </div>
+          <div class="assignment-overview-period-list">${items}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <article class="assignment-room-column">
+        <div class="assignment-room-head">
+          <div>
+            <span class="assignment-room-label">ห้อง</span>
+            <h3>${escapeHtml(room)}</h3>
+          </div>
+          <div class="assignment-room-count">${roomAssignments.length} งาน</div>
+        </div>
+        <div class="assignment-room-total">คะแนนเต็มรวม ${round2(roomTotal)} คะแนน</div>
+        <div class="assignment-room-periods">${periodHtml}</div>
+      </article>
+    `;
+  }).join('');
 }
 
 async function loadAssignments(roomArg){

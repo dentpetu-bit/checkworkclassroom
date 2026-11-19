@@ -285,3 +285,39 @@
 
 /* v38 manual attendance load */
 #attendanceRoomSelect option[value=""]{color:#9fb3ce}
+
+
+/* =========================================================
+   v39 ภาพรวมชิ้นงานทุกห้อง
+   ========================================================= */
+.assignment-overview-card{overflow:hidden}
+.assignment-overview-head{align-items:center}
+.assignment-overview-summary{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 18px}
+.assignment-overview-summary span{display:inline-flex;align-items:center;gap:5px;padding:9px 12px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#bfd1e8;font-size:13px}
+.assignment-overview-summary b{color:#fff;font-size:16px}
+.assignment-overview-scroll{overflow-x:auto;overflow-y:hidden;padding:2px 2px 14px;scrollbar-width:thin}
+.assignment-overview-grid{display:flex;align-items:flex-start;gap:16px;width:max-content;min-width:100%}
+.assignment-room-column{width:320px;min-width:320px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:22px;padding:16px}
+.assignment-room-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1)}
+.assignment-room-head h3{margin:1px 0 0;font-size:25px;color:#fff}
+.assignment-room-label{color:#9fb3ce;font-size:11px;font-weight:800;text-transform:uppercase}
+.assignment-room-count{padding:7px 10px;border-radius:999px;background:rgba(32,213,255,.12);color:#8eeaff;font-size:12px;font-weight:900;white-space:nowrap}
+.assignment-room-total{color:#9fb3ce;font-size:12px;margin:9px 0 13px}
+.assignment-room-periods{display:grid;gap:12px}
+.assignment-overview-period{border-radius:16px;overflow:hidden;background:rgba(0,0,0,.13);border:1px solid rgba(255,255,255,.08)}
+.assignment-overview-period-head{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 11px;border-bottom:1px solid rgba(255,255,255,.08)}
+.assignment-overview-period-head b{font-size:13px}
+.assignment-overview-period-head span{color:#9fb3ce;font-size:10px;text-align:right}
+.assignment-overview-period.pre .assignment-overview-period-head{background:rgba(45,212,191,.11)}
+.assignment-overview-period.mid .assignment-overview-period-head{background:rgba(250,204,21,.10)}
+.assignment-overview-period.post .assignment-overview-period-head{background:rgba(96,165,250,.11)}
+.assignment-overview-period.final .assignment-overview-period-head{background:rgba(244,114,182,.10)}
+.assignment-overview-period-list{display:grid;gap:6px;padding:8px}
+.assignment-overview-item{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start;background:rgba(255,255,255,.055);border-radius:11px;padding:8px}
+.assignment-overview-item-no{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:rgba(255,255,255,.10);color:#fff;font-size:11px;font-weight:900}
+.assignment-overview-item-body{min-width:0;display:grid;gap:2px}
+.assignment-overview-item-body b{font-size:12px;line-height:1.4;color:#f8fafc;word-break:break-word}
+.assignment-overview-item-body span{font-size:10px;color:#9fb3ce}
+.assignment-overview-no-work{padding:8px 5px;color:#64748b;text-align:center;font-size:11px}
+.assignment-overview-empty{width:100%;min-height:180px;display:grid;place-items:center;color:#9fb3ce;border:1px dashed rgba(255,255,255,.15);border-radius:18px}
+@media(max-width:900px){.assignment-room-column{width:285px;min-width:285px}}
