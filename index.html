@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kru Dew QR Score Studio</title>
-  <meta name="app-version" content="v41-overview-quickadd-report-filter" />
+  <meta name="app-version" content="v42-separate-nonexistent-students" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css?v=v41-overview-quickadd-report-filter" />
+  <link rel="stylesheet" href="styles.css?v=v42-separate-nonexistent-students" />
 </head>
 <body>
   <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div>
@@ -17,7 +17,7 @@
     <button class="nav" data-page="workPage">จัดการชิ้นงาน</button>
     <button class="nav" data-page="assignmentOverviewPage">แสดงงานภาพรวมทุกห้อง</button>
     <button class="nav" data-page="studentPage">จัดการนักเรียน</button>
-    <button class="nav" data-page="nonexistentPage">ตั้งค่านักเรียนไม่มีตัวตน</button>
+    <button class="nav" data-page="nonexistentPage">นักเรียนไม่มีตัวตน</button>
     <button class="nav" data-page="reportPage">รายงาน/นำเข้าคะแนน</button>
     <button class="nav" data-page="realScorePage">คะแนนจริง</button>
     <button class="nav" data-page="systemPage">ตั้งค่าระบบ</button>
@@ -255,7 +255,7 @@
       <div class="grid two student-grid">
         <div class="card">
           <div class="section-head">
-            <div><h2>จัดการนักเรียน</h2><p class="hint">เพิ่ม / แก้ไข / ลบนักเรียนผ่านหน้าเว็บได้ทันที</p></div>
+            <div><h2>จัดการนักเรียน</h2><p class="hint">แสดงเฉพาะนักเรียนปกติ เพิ่ม / แก้ไข / ลบ หรือย้ายไปเมนู “นักเรียนไม่มีตัวตน” ได้ทันที โดยเลขที่เดิมจะไม่ถูกเรียงใหม่</p></div>
             <span id="studentCountBadge" class="count-badge">0 คน</span>
           </div>
           <div class="form-grid">
@@ -310,8 +310,8 @@
       <div class="card">
         <div class="report-head">
           <div>
-            <h2>ตั้งค่านักเรียนไม่มีตัวตน</h2>
-            <p class="hint">ใช้สำหรับรายชื่อที่อยู่ในระบบแต่ไม่มีนักเรียนตัวจริง เมื่อกำหนดแล้วระบบจะแสดงแถวนั้นเป็นสีเทาในส่วนคะแนนและเช็คเวลาเรียน</p>
+            <h2>นักเรียนไม่มีตัวตน</h2>
+            <p class="hint">แสดงเฉพาะนักเรียนที่ถูกแยกออกจากรายชื่อปกติ นักเรียนกลุ่มนี้จะไม่แสดงในเมนูจัดการนักเรียนและระบบคะแนน แต่ข้อมูลเดิมและเลขที่เดิมยังคงเก็บไว้</p>
           </div>
           <div class="actions">
             <select id="nonexistentRoomSelect"></select>
@@ -321,8 +321,8 @@
 
         <div class="section-head nonexistent-head">
           <div>
-            <h3>รายชื่อนักเรียน</h3>
-            <p class="hint">กด “ตั้งเป็นไม่มีตัวตน” หรือ “คืนเป็นนักเรียนปกติ” ได้ตลอดเวลา</p>
+            <h3>รายชื่อนักเรียนไม่มีตัวตน</h3>
+            <p class="hint">สามารถกด “คืนเป็นนักเรียนปกติ” ได้ตลอดเวลา เมื่อคืนแล้วนักเรียนจะกลับไปอยู่ในรายชื่อเดิมพร้อมเลขที่และคะแนนเดิม</p>
           </div>
           <span id="nonexistentCountBadge" class="count-badge">0 คน</span>
         </div>
@@ -515,7 +515,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script src="./config.js?v=v41-overview-quickadd-report-filter"></script>
-  <script src="./app.js?v=v41-overview-quickadd-report-filter"></script>
+  <script src="./config.js?v=v42-separate-nonexistent-students"></script>
+  <script src="./app.js?v=v42-separate-nonexistent-students"></script>
 </body>
 </html>

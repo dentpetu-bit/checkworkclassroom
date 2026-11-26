@@ -340,7 +340,7 @@ async function collectBackupData(){
     supabaseClient.from('attendance_sessions').select('*')
   ]);
   const err=[r.error,s.error,a.error,sc.error,att.error,ses.error].find(Boolean); if(err) throw err;
-  return {app:'Kru Dew QR Score Studio',version:'v41',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
+  return {app:'Kru Dew QR Score Studio',version:'v42',backed_up_at:new Date().toISOString(),rooms:r.data||roomList,students:s.data||[],assignments:a.data||[],scores:sc.data||[],attendance:att.data||[],attendance_sessions:ses.data||[]};
 }
 function backupFileName(){
   const d=new Date(); const p=n=>String(n).padStart(2,'0');
@@ -599,7 +599,7 @@ async function loadAssignments(roomArg){
   renderScanAssignmentSelect();
   renderAssignmentList();
 }
-async function loadStudents(){ if(!supabaseClient) return; const room=currentRoom('roomSelect'); if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
+async function loadStudents(){ if(!supabaseClient) return; const room=currentRoom('roomSelect'); if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).eq('is_nonexistent',false).order('number',{ascending:true}); if(error) throw error; students=data||[]; }
 function periodLabel(period){
   return {pre:'ก่อนกลางภาค',mid:'กลางภาค',post:'หลังกลางภาค',final:'ปลายภาค'}[period||'pre'] || 'ก่อนกลางภาค';
 }
@@ -739,7 +739,30 @@ function showBigOverlay(kind, main, sub=''){
   window.__scanOverlayTimer=setTimeout(()=>{el.className='scan-overlay'; el.innerHTML='';},1800);
 }
 async function onScan(decodedText){ const now=Date.now(); if(decodedText===lastText && now-lastAt<1600) return; lastText=decodedText; lastAt=now; const value=normalizeQR(decodedText); if(scanState==='student') await handleStudentCode(value); else await handleScore(value); }
-async function handleStudentCode(code){ let stu = students.find(s=>String(s.student_code)===String(code)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle(); stu=data} if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code); selectedStudent=stu; safe('currentStudent',el=>{ el.classList.toggle('nonexistent-student-card',isNonexistentStudent(stu)); el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)} ${nonexistentBadge(stu)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`; }); showBigOverlay('student', `${stu.prefix||''}${stu.full_name}${isNonexistentStudent(stu)?' [ไม่มีตัวตน]':''}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`); scanState='score'; updateMode(); toast(isNonexistentStudent(stu)?'คำเตือน: นักเรียนคนนี้ตั้งค่าเป็น “ไม่มีตัวตน”':'พบนักเรียนแล้ว → สแกนคะแนนต่อ'); }
+async function handleStudentCode(code){
+  let stu=students.find(s=>String(s.student_code)===String(code));
+  if(!stu){
+    const {data}=await supabaseClient.from('students').select('*').eq('student_code',code).maybeSingle();
+    stu=data;
+  }
+  if(!stu) return toast('ไม่พบรหัสนักเรียน: '+code);
+  if(isNonexistentStudent(stu)){
+    selectedStudent=null;
+    scanState='student';
+    updateMode();
+    safe('currentStudent',el=>{el.classList.remove('nonexistent-student-card'); el.innerHTML='นักเรียนคนนี้อยู่ในเมนู “นักเรียนไม่มีตัวตน” จึงไม่สามารถลงคะแนนได้';});
+    return toast('นักเรียนไม่มีตัวตน — ระบบไม่อนุญาตให้ลงคะแนน');
+  }
+  selectedStudent=stu;
+  safe('currentStudent',el=>{
+    el.classList.remove('nonexistent-student-card');
+    el.innerHTML=`<div class="student-name">${escapeHtml(stu.prefix||'')}${escapeHtml(stu.full_name)}</div><div class="student-meta">ห้อง ${escapeHtml(stu.room)} เลขที่ ${escapeHtml(stu.number||'-')} | รหัส ${escapeHtml(stu.student_code)}</div>`;
+  });
+  showBigOverlay('student', `${stu.prefix||''}${stu.full_name}`, `ห้อง ${stu.room} เลขที่ ${stu.number||'-'} | สแกนคะแนนต่อ`);
+  scanState='score';
+  updateMode();
+  toast('พบนักเรียนแล้ว → สแกนคะแนนต่อ');
+}
 async function handleScore(raw){
   const score=Number(raw); if(Number.isNaN(score)) return toast('QR คะแนนต้องเป็นตัวเลขเท่านั้น'); if(!selectedStudent) return toast('กรุณาสแกนนักเรียนก่อน');
   const stu=selectedStudent; const result=await saveScore(stu.student_code, score);
@@ -753,6 +776,7 @@ async function saveScore(studentCode, score){
   const assignmentId=$('assignmentSelect')?.value; if(!assignmentId){ toast('กรุณาเลือกชิ้นงาน'); return {saved:false}; }
   let stu = students.find(s=>String(s.student_code)===String(studentCode)); if(!stu){const {data}=await supabaseClient.from('students').select('*').eq('student_code',studentCode).maybeSingle(); stu=data}
   if(!stu){ toast('ไม่พบนักเรียน'); return {saved:false}; }
+  if(isNonexistentStudent(stu)){ toast('นักเรียนไม่มีตัวตน — ไม่สามารถบันทึกคะแนนได้'); return {saved:false,nonexistent:true}; }
   const ass=assignments.find(a=>a.id===assignmentId);
   let existing=null; try{ existing=await getExistingScore(stu.id, assignmentId); }catch(e){ toast(e.message); return {saved:false}; }
   const oldScore=Number(existing?.score ?? 0);
@@ -865,6 +889,7 @@ async function loadReport(){
     .from('students')
     .select('*')
     .eq('room',room)
+    .eq('is_nonexistent',false)
     .order('number',{ascending:true});
   if(e1) return toast(e1.message);
 
@@ -957,8 +982,61 @@ async function exportReportImage(period){ if(!window.html2canvas) return toast('
 // aliases for old code compatibility
 function exportExcel(){ exportReportExcel('pre'); }
 async function exportImage(){ await exportReportImage('pre'); }
-async function loadManagedStudents(){ if(!supabaseClient) return; const room=currentRoom('studentRoomSelect'); if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}); if(error) throw error; managedStudents=data||[]; renderStudentTable(); }
-function renderStudentTable(){ if(!$('studentTable')) return; const q=($('studentSearchInput')?.value||'').trim().toLowerCase(); const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q))); safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`); $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>'; $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr${nonexistentRowClass(s)}><td>${escapeHtml(s.number??'')}</td><td>${escapeHtml(s.student_code)}</td><td>${escapeHtml(s.prefix??'')}</td><td class="text-left"><b>${escapeHtml(s.full_name)}</b> ${nonexistentBadge(s)}</td><td>${escapeHtml(s.room)}</td><td class="table-actions"><button class="mini" data-edit="${s.id}">แก้ไข</button><button class="mini danger" data-delete="${s.id}">ลบ</button></td></tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนในห้องนี้</td></tr>'; document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete)); }
+async function loadManagedStudents(){ if(!supabaseClient) return; const room=currentRoom('studentRoomSelect'); if(!room) return; const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).eq('is_nonexistent',false).order('number',{ascending:true}); if(error) throw error; managedStudents=data||[]; renderStudentTable(); }
+function renderStudentTable(){
+  if(!$('studentTable')) return;
+  const q=($('studentSearchInput')?.value||'').trim().toLowerCase();
+  const rows=managedStudents.filter(s=>!q || [s.student_code,s.prefix,s.full_name,s.room,s.number].some(v=>String(v??'').toLowerCase().includes(q)));
+  safe('studentCountBadge',el=>el.textContent=`${rows.length} คน`);
+  $('studentTable').querySelector('thead').innerHTML='<tr><th>เลขที่</th><th>รหัส</th><th>คำนำหน้า</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>จัดการ</th></tr>';
+  $('studentTable').querySelector('tbody').innerHTML=rows.map(s=>`<tr>
+    <td>${escapeHtml(s.number??'')}</td>
+    <td>${escapeHtml(s.student_code)}</td>
+    <td>${escapeHtml(s.prefix??'')}</td>
+    <td class="text-left"><b>${escapeHtml(s.full_name)}</b></td>
+    <td>${escapeHtml(s.room)}</td>
+    <td class="table-actions">
+      <button class="mini" data-edit="${s.id}">แก้ไข</button>
+      <button class="mini warning" data-move-nonexistent="${s.id}">ไม่มีตัวตน</button>
+      <button class="mini danger" data-delete="${s.id}">ลบ</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="6">ยังไม่มีนักเรียนปกติในห้องนี้</td></tr>';
+
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editStudent(b.dataset.edit));
+  document.querySelectorAll('[data-move-nonexistent]').forEach(b=>b.onclick=()=>moveManagedStudentToNonexistent(b.dataset.moveNonexistent));
+  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteStudent(b.dataset.delete));
+}
+
+async function moveManagedStudentToNonexistent(studentId){
+  if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
+  const student=(managedStudents||[]).find(s=>s.id===studentId);
+  if(!student) return toast('ไม่พบนักเรียนในรายชื่อปัจจุบัน');
+
+  if(!confirm(
+    `ย้ายนักเรียนไปเมนู “นักเรียนไม่มีตัวตน” ?\n\n`+
+    `${student.prefix||''}${student.full_name||''}\n`+
+    `เลขที่ ${student.number??'-'} • รหัส ${student.student_code}\n\n`+
+    `เลขที่และคะแนนเดิมจะยังคงเก็บไว้ และสามารถคืนเป็นนักเรียนปกติภายหลังได้`
+  )) return;
+
+  const {error}=await supabaseClient
+    .from('students')
+    .update({is_nonexistent:true})
+    .eq('id',studentId);
+
+  if(error) return toast(error.message);
+
+  managedStudents=managedStudents.filter(s=>s.id!==studentId);
+  students=students.filter(s=>s.id!==studentId);
+  renderStudentTable();
+
+  if($('nonexistentRoomSelect')?.value===student.room){
+    await loadNonexistentStudents();
+  }
+
+  toast(`ย้าย ${student.full_name} ไปเมนู “นักเรียนไม่มีตัวตน” แล้ว`);
+}
+
 function clearStudentForm(){ ['studentId','studentCode','studentPrefix','studentFullName','studentNumber'].forEach(id=>safe(id,el=>el.value='')); safe('studentFormRoom',el=>el.value=currentRoom('studentRoomSelect') || ''); safe('studentFormTitle',el=>el.textContent='เพิ่มนักเรียน'); safe('saveStudentBtn',el=>el.textContent='บันทึกนักเรียน'); }
 function editStudent(id){ const s=managedStudents.find(x=>x.id===id); if(!s) return; safe('studentId',el=>el.value=s.id); safe('studentCode',el=>el.value=s.student_code||''); safe('studentPrefix',el=>el.value=s.prefix||''); safe('studentFullName',el=>el.value=s.full_name||''); safe('studentNumber',el=>el.value=s.number??''); safe('studentFormRoom',el=>el.value=s.room||''); safe('studentFormTitle',el=>el.textContent='แก้ไขนักเรียน'); safe('saveStudentBtn',el=>el.textContent='อัปเดตข้อมูล'); window.scrollTo({top:0,behavior:'smooth'}); }
 async function saveStudentForm(e){ e.preventDefault(); if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase'); const id=$('studentId')?.value; const payload={student_code:$('studentCode')?.value.trim(), prefix:$('studentPrefix')?.value.trim() || null, full_name:$('studentFullName')?.value.trim(), room:$('studentFormRoom')?.value, number:$('studentNumber')?.value==='' ? null : Number($('studentNumber')?.value)}; if(!payload.student_code || !payload.full_name || !payload.room) return toast('กรุณากรอก รหัส / ชื่อ / ห้อง ให้ครบ'); const query=id ? supabaseClient.from('students').update(payload).eq('id',id) : supabaseClient.from('students').insert(payload); const {error}=await query; if(error) return toast(error.message); toast(id?'อัปเดตนักเรียนแล้ว':'เพิ่มนักเรียนแล้ว'); safe('studentRoomSelect',el=>el.value=payload.room); clearStudentForm(); await Promise.all([loadManagedStudents(), loadStudents()]); }
@@ -1004,7 +1082,7 @@ function downloadStudentTemplate(){ if(!window.XLSX) return toast('โหลด 
 async function getRoomStudentsAndAssignments(room){
   if(!supabaseClient) throw new Error('ยังไม่เชื่อมต่อ Supabase');
   const [{data:stu,error:e1},{data:ass,error:e2}] = await Promise.all([
-    supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}),
+    supabaseClient.from('students').select('*').eq('room',room).eq('is_nonexistent',false).order('number',{ascending:true}),
     supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true})
   ]);
   if(e1) throw e1; if(e2) throw e2;
@@ -1182,7 +1260,7 @@ async function loadRealScore(){
   if(!supabaseClient) return toast('ยังไม่เชื่อมต่อ Supabase');
   const room=currentRoom('realRoomSelect');
   const [{data:stu,error:e1},{data:ass,error:e2}] = await Promise.all([
-    supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true}),
+    supabaseClient.from('students').select('*').eq('room',room).eq('is_nonexistent',false).order('number',{ascending:true}),
     supabaseClient.from('assignments').select('*').eq('room',room).order('sort_order',{ascending:true})
   ]);
   if(e1) return toast(e1.message); if(e2) return toast(e2.message);
@@ -1270,7 +1348,12 @@ async function loadNonexistentStudents(){
   if(!supabaseClient) return;
   const room=currentRoom('nonexistentRoomSelect');
   if(!room) return toast('กรุณาเลือกห้อง');
-  const {data,error}=await supabaseClient.from('students').select('*').eq('room',room).order('number',{ascending:true});
+  const {data,error}=await supabaseClient
+    .from('students')
+    .select('*')
+    .eq('room',room)
+    .eq('is_nonexistent',true)
+    .order('number',{ascending:true});
   if(error) return toast(error.message);
   nonexistentStudents=data||[];
   renderNonexistentStudents();
@@ -1278,44 +1361,52 @@ async function loadNonexistentStudents(){
 function renderNonexistentStudents(){
   const table=$('nonexistentStudentTable'); if(!table) return;
   const rows=nonexistentStudents||[];
-  const inactiveCount=rows.filter(isNonexistentStudent).length;
-  safe('nonexistentCountBadge',el=>el.textContent=`ไม่มีตัวตน ${inactiveCount} คน / ทั้งหมด ${rows.length} คน`);
-  table.querySelector('tbody').innerHTML=rows.map(s=>{
-    const inactive=isNonexistentStudent(s);
-    return `<tr${nonexistentRowClass(s)}>
+  safe('nonexistentCountBadge',el=>el.textContent=`${rows.length} คน`);
+  table.querySelector('tbody').innerHTML=rows.map(s=>`
+    <tr class="nonexistent-student-row">
       <td>${escapeHtml(s.number??'')}</td>
       <td>${escapeHtml(s.student_code||'')}</td>
       <td class="text-left">${escapeHtml([s.prefix,s.full_name].filter(Boolean).join(' '))} ${nonexistentBadge(s)}</td>
-      <td>${inactive ? '<span class="nonexistent-badge">ไม่มีตัวตน</span>' : '<span class="normal-student-badge">นักเรียนปกติ</span>'}</td>
+      <td><span class="nonexistent-badge">ไม่มีตัวตน</span></td>
       <td>
-        <button type="button" class="mini ${inactive?'ghost':'danger'}" data-toggle-nonexistent="${s.id}" data-next-nonexistent="${inactive?'false':'true'}">
-          ${inactive?'คืนเป็นนักเรียนปกติ':'ตั้งเป็นไม่มีตัวตน'}
+        <button type="button" class="mini ghost" data-restore-nonexistent="${s.id}">
+          คืนเป็นนักเรียนปกติ
         </button>
       </td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="5">ยังไม่มีนักเรียนในห้องนี้</td></tr>';
+    </tr>
+  `).join('') || '<tr><td colspan="5">ยังไม่มีนักเรียนไม่มีตัวตนในห้องนี้</td></tr>';
 
-  document.querySelectorAll('[data-toggle-nonexistent]').forEach(btn=>{
-    btn.onclick=()=>toggleNonexistentStudent(btn.dataset.toggleNonexistent,btn.dataset.nextNonexistent==='true');
+  document.querySelectorAll('[data-restore-nonexistent]').forEach(btn=>{
+    btn.onclick=()=>toggleNonexistentStudent(btn.dataset.restoreNonexistent,false);
   });
 }
 async function toggleNonexistentStudent(studentId,nextValue){
-  const student=nonexistentStudents.find(s=>s.id===studentId);
-  if(!student) return;
+  const student=(nonexistentStudents||[]).find(s=>s.id===studentId);
+  if(!student) return toast('ไม่พบนักเรียนไม่มีตัวตน');
+
   const action=nextValue?'ตั้งเป็นนักเรียนไม่มีตัวตน':'คืนเป็นนักเรียนปกติ';
-  if(!confirm(`${action}\n${student.prefix||''}${student.full_name||''} รหัส ${student.student_code}\n\nยืนยันหรือไม่?`)) return;
-  const {error}=await supabaseClient.from('students').update({is_nonexistent:nextValue}).eq('id',studentId);
+  if(!confirm(
+    `${action}\n${student.prefix||''}${student.full_name||''} รหัส ${student.student_code}\n`+
+    `เลขที่เดิม ${student.number??'-'} จะยังคงเดิม\n\nยืนยันหรือไม่?`
+  )) return;
+
+  const {error}=await supabaseClient
+    .from('students')
+    .update({is_nonexistent:nextValue})
+    .eq('id',studentId);
+
   if(error) return toast(error.message);
 
-  student.is_nonexistent=nextValue;
-  [students,managedStudents,attendanceStudents].forEach(list=>{
-    const x=(list||[]).find(s=>s.id===studentId);
-    if(x) x.is_nonexistent=nextValue;
-  });
-  renderNonexistentStudents();
-  if($('studentTable')) renderStudentTable();
-  if($('attendanceTable')) renderAttendanceTable();
-  toast(nextValue?'ตั้งค่าเป็น “ไม่มีตัวตน” แล้ว':'คืนเป็นนักเรียนปกติแล้ว');
+  await loadNonexistentStudents();
+
+  if($('studentRoomSelect')?.value===student.room){
+    await loadManagedStudents();
+  }
+  if($('roomSelect')?.value===student.room){
+    await loadStudents();
+  }
+
+  toast(nextValue?'ตั้งค่าเป็น “ไม่มีตัวตน” แล้ว':'คืนเป็นนักเรียนปกติแล้ว พร้อมเลขที่และคะแนนเดิม');
 }
 
 // ==============================

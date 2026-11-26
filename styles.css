@@ -422,3 +422,19 @@
     grid-column:auto;
   }
 }
+
+
+/* =========================================================
+   v42 แยกนักเรียนไม่มีตัวตนออกจากรายชื่อและคะแนน
+   ========================================================= */
+button.warning{
+  background:linear-gradient(135deg,#f59e0b,#d97706)!important;
+  color:#fff;
+}
+#studentTable .table-actions{
+  min-width:210px;
+}
+#nonexistentStudentTable .nonexistent-student-row td{
+  background:#e5e7eb!important;
+  color:#4b5563!important;
+}
